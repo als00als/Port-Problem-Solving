@@ -12,9 +12,10 @@ from rapidfuzz import fuzz, process
 from unidecode import unidecode
 
 
-FUZZY_LIMIT = 10
-FUZZY_CUTOFF = 60
-MAX_CANDIDATES = 30
+# EXP-014: fixed wide fuzzy search selected after three independent group splits.
+FUZZY_LIMIT = 40
+FUZZY_CUTOFF = 50
+MAX_CANDIDATES = 60
 EXPANDED_FUZZY_LIMIT = 20
 EXPANDED_FUZZY_CUTOFF = 55
 EXPANDED_MAX_CANDIDATES = 40
@@ -188,10 +189,9 @@ class AdaptiveCatalogIndex:
         )
 
     def candidates_with_scores(self, row: dict) -> tuple[list[int], dict[int, float]]:
-        expanded = self.should_expand(row)
-        fuzzy_limit = EXPANDED_FUZZY_LIMIT if expanded else FUZZY_LIMIT
-        fuzzy_cutoff = EXPANDED_FUZZY_CUTOFF if expanded else FUZZY_CUTOFF
-        max_candidates = EXPANDED_MAX_CANDIDATES if expanded else MAX_CANDIDATES
+        fuzzy_limit = FUZZY_LIMIT
+        fuzzy_cutoff = FUZZY_CUTOFF
+        max_candidates = MAX_CANDIDATES
         base_indices = self.generate_base_candidates(row, max_candidates)
         fuzzy_indices: list[int] = []
         fuzzy_scores: dict[int, float] = {}
