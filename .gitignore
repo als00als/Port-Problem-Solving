@@ -1,3 +1,9 @@
+# 테스트 노트북 파일은 올리지 않음
+notebooks/
+submissions/
+experiments/splits/
+experiments/results/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
@@ -220,3 +226,6 @@ __marimo__/
 .streamlit/secrets.toml
 CLAUDE.md
 GPT.md
+notebooks/test_metric.ipynb
+notebooks/test_metric.ipynb
+notebooks/test_metric.ipynb
