@@ -1,5 +1,7 @@
 # 테스트 노트북 파일은 올리지 않음
 notebooks/
+submissions/
+experiments/splits/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

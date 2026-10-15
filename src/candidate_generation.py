@@ -5,6 +5,10 @@
 # sys.path.insert(0, str(project_root))
 
 from src.normalize import normalize_name
+from src.metric import is_korean
+
+from rapidfuzz import fuzz, process
+from unidecode import unidecode
 import pandas as pd
 
 def build_catalog_index(catalog):
@@ -54,3 +58,61 @@ def generate_candidates(row, catalog, index, max_candidates=30) -> list:
         add_candidates(nearest_indices)
 
     return candidates[:max_candidates]
+
+def romanized_name(value) -> str:
+    normalized = normalize_name(value)
+
+    if not normalized:
+        return ""
+
+    return normalize_name(unidecode(normalized))
+
+
+def generate_fuzzy_candidates_with_scores(
+    row,
+    catalog,
+    catalog_index,
+    romanized_catalog_names,
+    fuzzy_limit=10,
+    fuzzy_cutoff=60,
+    max_candidates=30,
+):
+    base_indices = generate_candidates(
+        row=row,
+        catalog=catalog,
+        index=catalog_index,
+        max_candidates=max_candidates,
+    )
+
+    fuzzy_indices = []
+    fuzzy_scores = {}
+
+    if is_korean(row.get("vessel_name")):
+        query_key = romanized_name(row.get("vessel_name"))
+
+        if query_key:
+            matches = process.extract(
+                query_key,
+                romanized_catalog_names,
+                scorer=fuzz.ratio,
+                limit=fuzzy_limit,
+                score_cutoff=fuzzy_cutoff,
+            )
+
+            for _, score, candidate_index in matches:
+                candidate_index = int(candidate_index)
+                fuzzy_indices.append(candidate_index)
+                fuzzy_scores[candidate_index] = float(score) / 100.0
+
+    merged_indices = []
+    seen = set()
+
+    for candidate_index in fuzzy_indices + base_indices:
+        if candidate_index not in seen:
+            merged_indices.append(candidate_index)
+            seen.add(candidate_index)
+
+        if len(merged_indices) >= max_candidates:
+            break
+
+    return merged_indices, fuzzy_scores

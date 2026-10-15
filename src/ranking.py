@@ -188,3 +188,26 @@ def rerank_candidates(
         return None
 
     return ranked[0]["vessel_id"]
+
+
+
+def rank_candidates_with_fuzzy_score(row, catalog, candidate_indices, fuzzy_scores, fuzzy_score_bonus=0.25):
+    ranked = []
+    for candidate_index in candidate_indices:
+        candidate_index = int(candidate_index)
+        catalog_row = catalog.iloc[candidate_index]
+        base_features = calculate_candidate_score(row, catalog_row)
+        fuzzy_score = fuzzy_scores.get(candidate_index, 0.0)
+        final_score = (
+            base_features["score"]
+            + fuzzy_score_bonus * fuzzy_score
+        )
+        ranked.append({
+            "index": candidate_index,
+            "vessel_id": str(catalog_row["vessel_id"]),
+            "score": final_score,
+            "fuzzy_romanized_score": fuzzy_score,
+        })
+
+    ranked.sort(key=lambda item: (-item["score"], item["vessel_id"]))
+    return ranked
