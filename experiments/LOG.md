@@ -586,3 +586,137 @@ EXP-014 제출 후보로 채택. 기존 `final_exp013_adaptive.zip`은 보존하
 - 기존 EXP-013 리더보드 점수: `0.65766`
 - 점수 변화: `+0.0186733333` (+1.8673%p)
 - 그룹별 리더보드 점수는 제공되지 않아 한글·비한글별 변화는 판단하지 않음
+
+## EXP-017: 고정 후보·특징 LightGBM LambdaRank 재랭커 비교
+
+검증 설정:
+- `target_vessel_id` 그룹 분할 seed 42, 123, 2026
+- 후보 생성은 EXP-016 `limit=50/cutoff=50/max_candidates=70`으로 고정
+- 규칙 기반 EXP-016과 LambdaRank가 같은 후보 목록·특징을 사용
+- 각 seed의 group-train 행으로만 학습하고 validation target ID와 겹치지 않음을 확인
+- 모델 학습 입력: 행별 후보 relevance label (정답 후보 1, 나머지 0)
+- 특징: 기존 `base_features` 6개 출력과 `fuzzy_score` (총 7개)
+- LightGBM Ranker: `objective=lambdarank`, 300 trees, learning rate 0.04, num_leaves 15
+- seed마다 같은 설정으로 2회 학습해 validation 행별 예측 일치 여부 확인
+
+결과:
+
+| split | 모델 | 한글 정확도 | 비한글 정확도 | 가중 점수 | 한글 후보 포함률 | 전체 후보 포함률 | 평균 후보 수 |
+|---|---|---:|---:|---:|---:|---:|---:|
+| seed 42 | EXP-016 rule | 0.720165 | 0.738220 | 0.725581 | 0.975309 | 0.763225 | 14.7129 |
+| seed 42 | LambdaRank | 0.802469 | 0.738696 | 0.783337 | 0.975309 | 0.763225 | 14.7129 |
+| seed 123 | EXP-016 rule | 0.735632 | 0.744936 | 0.738423 | 0.931034 | 0.765310 | 14.9083 |
+| seed 123 | LambdaRank | 0.720307 | 0.744475 | 0.727557 | 0.931034 | 0.765310 | 14.9083 |
+| seed 2026 | EXP-016 rule | 0.716279 | 0.726109 | 0.719228 | 0.962791 | 0.747294 | 14.0329 |
+| seed 2026 | LambdaRank | 0.776744 | 0.726109 | 0.761554 | 0.962791 | 0.747294 | 14.0329 |
+
+추가 확인:
+- 각 seed에서 LambdaRank의 두 번 예측은 모두 행 단위로 동일했다.
+- 후보 수와 포함률은 양 모델에서 같아 비교 중 후보 생성 차이는 없었다.
+- seed별 positive candidate 학습 query 수: 7,404 / 7,331 / 7,398.
+- validation split 전체에서 exact match 비중이 없어 exact_match feature gain은 0이었다.
+- 시간은 후보·특징 생성 이후 측정했다. 규칙 모델은 후보 점수 계산 시간이고 LambdaRank는 학습+예측 시간이므로 직접 비교 가능한 추론 시간으로 해석하지 않는다.
+
+결론:
+- LambdaRank는 seed 42와 2026에서는 개선했지만 seed 123에서는 weighted `-0.010866`, 한글 정확도 `-0.015326`, 비한글 정확도 `-0.000460` 하락했다.
+- 후보 포함률·반복성은 유지했지만, weighted 세 seed 비하락·한글 0.005 이내 하락·비한글 정확도 비하락 게이트를 통과하지 못했다.
+- 세 seed 간 성능 변동이 커 현 재랭커로 채택하지 않는다. 새 제출 zip 및 리더보드 제출은 하지 않았다.
+
+산출물:
+- 노트북: `notebooks/04_EXP017_LightGBM_LambdaRank.ipynb`
+- 결과 폴더: `experiments/results/exp017_lambdarank_20261015_204555/`
+- 비교표, 행 단위 예측, feature importance, gate 표, 설정 요약 저장
+
+
+## EXP-018: 고정 후보·특징 CatBoost YetiRankPairwise 재랭커 비교
+
+상태: 세 seed 평가 완료. 모든 seed의 두 번 학습 예측은 일치했지만 비한글 정확도 게이트가 seed 42·123에서 실패해 미채택.
+
+검증 설정:
+- EXP-017과 동일한 target_vessel_id 그룹 분할 seed 42, 123, 2026 및 EXP-016 규칙 재랭커 비교
+- 후보 검색은 EXP-016 `limit=50/cutoff=50/max_candidates=70`으로 고정
+- 특징은 기존 7개(`base_features` 6개와 `fuzzy_score`)로 고정
+- CatBoost `CatBoostRanker(loss_function="YetiRankPairwise")` 한 모델만 비교
+- 각 seed의 group-train 행만 학습에 사용하고, validation 예측을 두 번 학습해 행 단위 재현성 확인
+- ranking feature importance는 학습 Pool을 전달한 `LossFunctionChange`로 계산
+
+결과:
+
+| seed | 모델 | weighted | 한글 정확도 | 비한글 정확도 | 한글 후보 포함률 | 전체 후보 포함률 | 평균 후보 수 | 랭커 학습·예측(초) | 반복성 |
+|---:|---|---:|---:|---:|---:|---:|---:|---:|---|
+| 42 | EXP-016 rule | 0.725581 | 0.720165 | 0.738220 | 0.975309 | 0.763225 | 14.712884 | 0.021 | True |
+| 42 | CatBoost YetiRankPairwise | 0.779743 | 0.798354 | 0.736316 | 0.975309 | 0.763225 | 14.712884 | 80.685 | True |
+| 123 | EXP-016 rule | 0.738423 | 0.735632 | 0.744936 | 0.931034 | 0.765310 | 14.908344 | 0.045 | True |
+| 123 | CatBoost YetiRankPairwise | 0.742958 | 0.743295 | 0.742173 | 0.931034 | 0.765310 | 14.908344 | 56.689 | True |
+| 2026 | EXP-016 rule | 0.719228 | 0.716279 | 0.726109 | 0.962791 | 0.747294 | 14.032889 | 0.013 | True |
+| 2026 | CatBoost YetiRankPairwise | 0.748530 | 0.758140 | 0.726109 | 0.962791 | 0.747294 | 14.032889 | 69.494 | True |
+
+게이트 및 판단:
+- weighted 점수는 세 seed 모두 EXP-016 rule보다 높았고, 한글 정확도도 세 seed 모두 개선했다.
+- 후보 검색과 특징을 고정했으므로 후보 포함률과 평균 후보 수는 기준과 동일했다.
+- 비한글 정확도는 seed 42에서 `-0.001904`, seed 123에서 `-0.002763`, seed 2026에서 동일했다. 비한글 정확도 비하락 기준을 만족하지 못해 전체 게이트 실패.
+- 따라서 CatBoost 재랭커는 현재 기준으로 채택하지 않고 제출 후보로 승격하지 않는다. 새 제출 zip과 리더보드 제출은 만들지 않았다.
+- 사용자가 공유한 노트북 출력으로 수치를 기록했다. 결과 저장 셀 실행 여부 및 timestamp 결과 폴더 생성은 아직 확인되지 않아 CSV 산출물 경로는 기록하지 않음.
+
+산출물:
+- 노트북: `notebooks/05_EXP018_CatBoost_Ranker.ipynb`
+- 결과 CSV/summary: 노트북 마지막 결과 저장 셀 실행 후 생성 여부 확인 예정
+
+
+## EXP-019 검토: XGBoost 설치 여부 및 LGBM·CatBoost 앙상블 가치
+
+확인일: 2026-10-15 (KST)
+
+- 프로젝트 `.venv`에서 `xgboost` 모듈을 찾지 못했다. 사용자의 지시에 따라 설치하지 않았고 XGBoost 모델 학습은 건너뜀.
+- 같은 환경에서 `lightgbm`, `catboost` 모듈은 사용 가능함.
+- 사용자가 공유한 EXP-017/018 결과에서 LambdaRank는 seed 123에서 기준보다 낮았으나 CatBoost는 seed 123에서 소폭 높았다. seed 42·2026은 양 모델 모두 기준보다 높았다. seed별 결과 차이는 상보 가능성을 시사하지만 행별 후보 점수 조합의 개선을 입증하지는 않음.
+- 당시 판단: LGBM·CatBoost validation 후보별 점수를 확보해 제한된 score blend를 시험할 가치가 있다고 봄. 이후 EXP-020에서 후보 점수 앙상블을 실제 검증함.
+- 리더보드 결과 정정: 사용자가 보고한 `final_exp016_korean_limit50.zip` 점수는 `0.674`로 EXP-014 `0.6763333333`보다 낮음. 따라서 현재까지 확인된 최고 리더보드 점수는 EXP-014.
+- XGBoost 실험은 패키지 미설치로 생략함. 앙상블은 별도 노트북에서 후속 실행했고 결과는 EXP-020에 기록함. 새 제출 파일은 만들지 않음.
+
+
+## EXP-020: LightGBM·CatBoost 후보 순위 앙상블 비교
+
+상태: 세 seed 평가 완료. 세 가지 혼합비는 모두 반복 가능했지만, seed 123의 비한글 정확도 등 통과 조건을 충족하지 못해 전부 미채택.
+
+검증 설정:
+- EXP-016 후보 검색 `limit=50/cutoff=50/max_candidates=70` 및 기존 7개 특징 고정
+- EXP-017 LightGBM LambdaRank와 EXP-018 CatBoost YetiRankPairwise를 같은 seed별 group-train으로 학습
+- query 내부 후보 순위를 `[1, 0]`으로 정규화하고 LGBM 비중 0.25, 0.50, 0.75 적용
+- 각 seed에서 두 모델을 두 번 학습해 개별 모델과 혼합 예측 반복성 확인
+
+가중 점수:
+
+| seed | EXP-016 rule | LightGBM | CatBoost | blend 25/75 | blend 50/50 | blend 75/25 |
+|---:|---:|---:|---:|---:|---:|---:|
+| 42 | 0.725581 | 0.783337 | 0.779743 | 0.782623 | 0.753959 | 0.783337 |
+| 123 | 0.738423 | 0.727557 | 0.742958 | 0.753686 | 0.727143 | 0.746331 |
+| 2026 | 0.719228 | 0.761554 | 0.748530 | 0.748530 | 0.751786 | 0.774577 |
+
+판정 근거:
+- 모든 혼합안이 seed별 재실행에서 동일한 예측을 냈고, 후보 생성이 고정되어 포함률과 평균 후보 수는 EXP-016 기준과 같았다.
+- blend 25/75, 50/50, 75/25 모두 seed 123에서 비한글 정확도가 각각 `-0.002762`, `-0.001842`, `-0.000460` 하락했다. 따라서 비한글 정확도 비하락 게이트를 모두 실패했다.
+- blend 50/50은 seed 123에서 weighted도 `0.727143`으로 기준 `0.738423`보다 낮았다. 다른 두 비율은 seed 123 weighted가 올랐지만 비한글 게이트 때문에 전체 통과에는 실패.
+- 단일 모델 top-1 정확도 상보성은 작았다. seed별 LGBM-only/CatBoost-only 정답 건수는 21/15, 26/27, 12/8이며 둘 다 오답인 수는 582, 601, 639였다. 혼합 점수는 seed 간 trade-off를 보였지만 전 seed 조건을 만족하지 않았다.
+- 결과적으로 앙상블은 채택하지 않고 새 제출 zip 및 리더보드 제출을 하지 않았다.
+
+산출물:
+- 노트북: `notebooks/06_EXP020_LGBM_CatBoost_Ensemble.ipynb`
+- 결과 폴더: `experiments/results/exp020_lgbm_catboost_ensemble_20261015_234914/`
+- 점수 비교, 행별 예측, 후보별 raw/rank 점수, 오답 상보성, 중요도, gate, 설정 요약 저장
+
+
+## EXP-021: LightGBM LambdaRank 단일 파라미터 비교
+
+상태: 실행용 노트북 작성 완료, 사용자 실행 대기. 아직 점수나 채택 판단은 없음.
+
+실험 설계:
+- EXP-016 후보 검색 `limit=50/cutoff=50/max_candidates=70`, 후보 생성 경로와 기존 7개 특징 고정
+- LightGBM LambdaRank의 `num_leaves`만 조정하고 기본값 15 control과 사용자 설정값을 같은 세 seed에서 비교
+- 각 seed에서 두 설정을 각각 두 번 학습해 예측 재현성 확인
+- EXP-016 규칙 점수 대비 기존 통과 기준(weighted·한글·비한글·후보 포함률·재현성) 적용
+- 매 실행마다 점수표, 행 단위 예측, gate 및 설정을 timestamp 기반 별도 폴더에 저장. 제출 zip은 생성하지 않음.
+
+산출물:
+- 노트북: `notebooks/07_EXP021_LightGBM_num_leaves_단일파라미터_실험.ipynb`
+- 각 실행에서 변경할 셀 값: `TUNED_NUM_LEAVES`
