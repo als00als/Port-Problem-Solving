@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import asdict
 from typing import Any
 from uuid import uuid4
@@ -20,6 +21,7 @@ from .tools import build_agent_tools
 
 DEFAULT_MAX_TOOL_CALLS = 6
 DEFAULT_MAX_MODEL_CALLS = 4
+DEFAULT_MAX_EXPANSIONS = 1
 
 
 def _limit(config: dict[str, Any], name: str, default: int) -> int:
@@ -73,6 +75,7 @@ def build_agent_graph(
     options = dict(config or {})
     max_tool_calls = _limit(options, "max_tool_calls", DEFAULT_MAX_TOOL_CALLS)
     max_model_calls = _limit(options, "max_model_calls", DEFAULT_MAX_MODEL_CALLS)
+    max_expansions = _limit(options, "max_expansions", DEFAULT_MAX_EXPANSIONS)
     review_policy = _policy(options)
     tools = build_agent_tools(service)
 
@@ -184,11 +187,33 @@ def build_agent_graph(
             return "finish"
         if state.get("tool_calls_used", 0) > max_tool_calls:
             return "budget_error"
+        expansion_calls = sum(
+            tool_call.get("name") == "expand_search" for tool_call in response.tool_calls
+        )
+        if state.get("expansion_count", 0) + expansion_calls > max_expansions:
+            return "budget_error"
         return "tools"
 
     def budget_error(state: AgentState) -> dict[str, Any]:
+        messages = state.get("messages", [])
+        response = next(
+            (message for message in reversed(messages) if isinstance(message, AIMessage)),
+            None,
+        )
+        expansion_calls = sum(
+            tool_call.get("name") == "expand_search"
+            for tool_call in (response.tool_calls if response else [])
+        )
+        expansion_over_budget = (
+            state.get("expansion_count", 0) + expansion_calls > max_expansions
+        )
         return {
-            "errors": [*state.get("errors", []), "tool_call_budget_exhausted"],
+            "errors": [
+                *state.get("errors", []),
+                "expansion_budget_exhausted"
+                if expansion_over_budget
+                else "tool_call_budget_exhausted",
+            ],
             "status": "needs_review" if state.get("review_signals", {}).get("review_required") else "completed",
         }
 
@@ -197,6 +222,8 @@ def build_agent_graph(
         history = list(state.get("tool_history", []))
         new_entries = []
         request_made = False
+        expansion_count = state.get("expansion_count", 0)
+        expanded_result = None
         for message in state.get("messages", []):
             if not isinstance(message, ToolMessage) or message.tool_call_id in seen:
                 continue
@@ -207,13 +234,25 @@ def build_agent_graph(
                 "result": str(message.content),
             }
             new_entries.append(entry)
+            if message.name == "expand_search":
+                expansion_count += 1
+                if getattr(message, "status", "success") != "error":
+                    try:
+                        expanded_result = json.loads(str(message.content))
+                    except (TypeError, ValueError):
+                        entry["status"] = "error"
             if message.name == "request_review":
                 request_made = True
             if getattr(message, "status", "success") == "error":
                 entry["status"] = "error"
 
         history.extend(new_entries)
-        patch: dict[str, Any] = {"tool_history": history}
+        patch: dict[str, Any] = {
+            "tool_history": history,
+            "expansion_count": expansion_count,
+        }
+        if expanded_result is not None:
+            patch["expanded_result"] = expanded_result
         if request_made:
             patch["status"] = "awaiting_review"
         if any(entry["status"] == "error" for entry in new_entries):

@@ -30,6 +30,14 @@ class MatchResult:
     top_rank: list[CandidateEvidence]
 
 
+@dataclass
+class ExpandedSearchResult:
+    profile: str
+    suggested_prediction: str | None
+    candidate_count: int
+    top_rank: list[CandidateEvidence]
+
+
 class MatchingService:
     def __init__(self, catalog: pd.DataFrame):
         self.index = AdaptiveCatalogIndex(catalog)
@@ -70,6 +78,51 @@ class MatchingService:
 
         return MatchResult(
             baseline_prediction=self.index.predict_row(row),
+            top_rank=ranked[:top_k],
+        )
+
+    def expand_search(
+        self,
+        record: VesselRecord,
+        *,
+        profile: str = "wide_v1",
+        top_k: int = 5,
+    ) -> ExpandedSearchResult:
+        """Search a wider Korean-name candidate set without changing baseline."""
+        if not isinstance(top_k, int) or isinstance(top_k, bool) or top_k < 1:
+            raise ValueError("top_k는 1 이상의 정수여야 합니다")
+
+        row = asdict(record)
+        candidate_indices, fuzzy_scores = self.index.expanded_candidates_with_scores(
+            row, profile=profile
+        )
+        ranked = []
+        for index in candidate_indices:
+            catalog_row = self.index.catalog.iloc[index]
+            features = base_features(row, catalog_row)
+            base_score = features["score"]
+            fuzzy_score = fuzzy_scores.get(index, 0.0)
+            final_score = base_score + FUZZY_SCORE_BONUS * fuzzy_score
+            ranked.append(
+                CandidateEvidence(
+                    vessel_id=self.index.ids[index],
+                    catalog_name=str(catalog_row["vessel_name"]),
+                    rank=0,
+                    features={key: value for key, value in features.items() if key != "score"},
+                    base_score=base_score,
+                    fuzzy_score=fuzzy_score,
+                    final_score=final_score,
+                )
+            )
+
+        ranked.sort(key=lambda candidate: (-candidate.final_score, candidate.vessel_id))
+        for rank, candidate in enumerate(ranked, start=1):
+            candidate.rank = rank
+
+        return ExpandedSearchResult(
+            profile=profile,
+            suggested_prediction=ranked[0].vessel_id if ranked else None,
+            candidate_count=len(candidate_indices),
             top_rank=ranked[:top_k],
         )
 

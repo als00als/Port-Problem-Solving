@@ -720,3 +720,217 @@ EXP-014 제출 후보로 채택. 기존 `final_exp013_adaptive.zip`은 보존하
 산출물:
 - 노트북: `notebooks/07_EXP021_LightGBM_num_leaves_단일파라미터_실험.ipynb`
 - 각 실행에서 변경할 셀 값: `TUNED_NUM_LEAVES`
+
+## MatchingService 기준 결과 일치 점검 (정식 EXP 아님)
+
+목적:
+- 노트북에서 구현한 단건 매칭을 `submit/model/record_validation.py`와 `submit/model/matching_service.py`로 옮긴 뒤, 기존 EXP-014 점수가 유지되는지 확인
+
+확인 내용:
+- 사용자가 `MatchingService.match_vessel()` 결과와 후보별 순위·특징·점수를 노트북에서 확인함
+- 사용자가 EXP-014와 같은 점수 `0.67633`을 확인했다고 보고함
+- 점수 비교에 사용한 split, 행 수, 실행 셀·산출물은 현재 기록에서 확인되지 않음
+
+판단:
+- 사용자 보고에 따른 구현 점검으로 기록하며, EXP-014의 독립 재실행이나 정식 신규 실험으로 간주하지 않음
+- 새 모델 설정을 평가하거나 제출 후보를 교체한 결과가 아님. 최고 기록 리더보드 점수는 EXP-014의 `0.6763333333`
+- LangGraph 에이전트의 실제 실행·평가 결과는 아직 없음
+
+
+## 에이전트 시연 노트북 실행 및 EXP-014 패키지 사전 확인 (2026-10-18)
+
+실행:
+- 노트북: `notebooks/08_Agent_Vessel_Review_Demo.ipynb`
+- 집계 결과: `experiments/results/agent_review_20261018_124957/summary.json`
+- 검증 데이터는 공식 `train.csv`, `vessel_catalog.csv`와 기존 group split만 사용했다. `target_vessel_id`는 에이전트 입력 payload에서 제외했다.
+
+MatchingService 호환성:
+
+| seed | 행 수 | 기준 예측 일치율 | 기준 가중 점수 | 서비스 가중 점수 | 서비스 한글 | 서비스 비한글 | top-5 정답 포함률 | 서비스 ms/행 |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 42 | 2,344 | 1.000 | 0.726 | 0.726 (비반올림 0.725581) | 0.720165 | 0.738220 | 0.744881 | 6.494 |
+| 123 | 2,433 | 1.000 | 0.728 | 0.728 (비반올림 0.727695) | 0.720307 | 0.744936 | 0.755446 | 6.474 |
+| 2026 | 2,402 | 1.000 | 0.719 | 0.719 (비반올림 0.719228) | 0.716279 | 0.726109 | 0.731474 | 6.310 |
+
+기준 구현과 서비스의 모든 예측이 세 split에서 일치했다. 이 결과는 MatchingService 어댑터 호환성 확인이며, EXP-014의 전체 성능을 새로 검증한 것으로 해석하지 않는다.
+
+규칙 기반 에이전트 시연:
+- seed 42 valid에서 한글/비한글을 나누어 총 30건을 선택했다. `AGENT_MODEL=None`이라 LLM 기반 계획·도구 선택은 실행하지 않았다.
+- weighted 0.753333(표시 점수 0.753), 한글 0.733333, 비한글 0.800000; 30건 중 baseline 오답 7건.
+- 검토 요청은 0건이어서 오답 포착률은 0/7이다. 이 표본과 현재 검토 규칙에서는 검토 신호가 발생하지 않았으며, 검토 정책이 오답을 포착한다고 볼 근거가 없다.
+- 30건 모두 `completed`, 그래프/도구 오류 0건. 5건의 반복 실행에서 예측과 검토 신호가 모두 동일했다.
+- 평균/중앙값/p95 소요 시간: 25.16/28.61/33.49ms/건. 30건 표본이며 전체 서비스 처리시간 보장은 아니다.
+- 표본이 작고 LLM을 비활성화했으므로 에이전트의 정확도 개선을 입증하지 않는다. 정확도 향상 주장은 보류한다.
+
+제출 후보 패키지 사전 확인:
+- 새 파일 `submissions/final_exp014_validated_20261018.zip`은 EXP-014 고정 예측기만 담는다. LangGraph/agent 코드는 포함하지 않는다.
+- ZIP 최상위 구성: `model/adaptive_lib.py`, `script.py`, `requirements.txt`. 기존 제출 zip은 덮어쓰지 않았다.
+- seed 42 group valid를 정답 컬럼 없이 test 형식으로 만들어 ZIP을 임시 폴더에서 실행했다. 2,344행 출력, `sample_id,target_vessel_id` 컬럼, 입력 순서 보존, 모든 예측 ID의 catalog 포함을 확인했다. 로컬 측정 추론 시간은 8.683초.
+- 별도 5행으로 묶음·역순·행 단독 실행 예측을 비교해 모두 동일함을 확인했다.
+- ZIP SHA-256: `031f2ef5e5d02e291df8d0dad7a64f19a662329ebd694897d6a6d55a32d431ff`.
+- 이 패키지는 로컬 valid 사전 확인을 통과했지만 DACON 서버/깨끗한 서버 환경에서의 실제 설치 검증은 수행하지 않았다. 실제 대회 제출도 하지 않았다.
+
+### 검토 정책의 자연 데이터 커버리지 확인
+
+- `assess_review_need()` 각 분기(`no_candidates`, `top_tie`, `name_and_tonnage_missing`, `tool_failure`)와 정상 사례를 인공 입력으로 확인했다. 각 분기가 해당 reason을 반환하고 정상 사례는 검토 대상으로 표시하지 않았다.
+- seed 42 group valid 전체 2,344행에 기본 매칭과 현재 `review_v1` 규칙을 적용했다. 정답은 평가 집계에만 사용했다.
+- 기본 예측 오답은 618행, 검토 요청은 162행(6.91%)이었다. 검토 사유는 후보 없음 136건과 최상위 동점 26건이었다.
+- 검토 요청 162건은 모두 오답이었다(precision 100%); 전체 오답 중 포착은 162/618건(26.21%)이다. 따라서 현 규칙은 이 split에서 정밀도는 높고 커버리지는 낮았다.
+- 30건 무작위 시연에서 review 0건이었던 것은 전체 검증의 6.91% 검토율과 양립한다. 30건 결과만으로 검토 규칙이 작동하지 않는다고 일반화할 수 없다.
+- 다음 분석은 점수 간격 등 추가 기준의 임계값별 precision/coverage trade-off를 세 seed에서 비교하는 것이다. seed 42 단독으로 정책을 조정·선택하지 않는다.
+
+### 점수 간격 임계값 비교
+
+- 기존 `review_v1`에 `top_score - second_score <= threshold` 규칙을 더한다고 가정해 threshold 0.005, 0.01, 0.02, 0.03, 0.05, 0.10을 seed 42/123/2026 group valid에서 오프라인 비교했다. 정책 코드는 아직 변경하지 않았다.
+- `review_rate`는 전체 행 중 사람 검토 표시 비율, `precision`은 표시된 행 중 오답 비율, `error_capture`는 모든 오답 중 검토 대상으로 포착한 비율이다.
+
+| seed | threshold | review rate | precision | error capture |
+|---:|---:|---:|---:|---:|
+| 42 | 0.005 | 11.39% | 97.00% | 41.91% |
+| 42 | 0.010 | 15.57% | 95.62% | 56.47% |
+| 42 | 0.020 | 20.56% | 89.21% | 69.58% |
+| 42 | 0.030 | 25.90% | 86.16% | 84.63% |
+| 42 | 0.050 | 31.27% | 80.08% | 94.98% |
+| 42 | 0.100 | 35.37% | 74.55% | 100.00% |
+| 123 | 0.005 | 11.47% | 93.19% | 41.47% |
+| 123 | 0.010 | 15.21% | 92.16% | 54.39% |
+| 123 | 0.020 | 20.80% | 84.58% | 68.26% |
+| 123 | 0.030 | 25.73% | 81.95% | 81.82% |
+| 123 | 0.050 | 30.42% | 79.32% | 93.62% |
+| 123 | 0.100 | 35.22% | 72.81% | 99.52% |
+| 2026 | 0.005 | 12.20% | 96.93% | 43.03% |
+| 2026 | 0.010 | 15.78% | 91.56% | 52.58% |
+| 2026 | 0.020 | 22.11% | 85.12% | 68.48% |
+| 2026 | 0.030 | 26.35% | 84.68% | 81.21% |
+| 2026 | 0.050 | 29.89% | 83.29% | 90.61% |
+| 2026 | 0.100 | 35.47% | 77.11% | 99.55% |
+
+- 임계값을 높이면 오답 포착률은 높고 검토 정밀도는 낮아지는 일관된 trade-off가 세 split에서 관찰됐다. 예를 들어 0.01은 약 15~16%를 검토 대상으로 표시하며 오답의 약 52.6~56.5%를 포착했다. 0.02는 약 20.6~22.1%를 표시하고 오답의 약 68.3~69.6%를 포착했다.
+- 이 표는 동일한 세 split에서 여러 임계값을 탐색한 결과이므로, 특정 threshold를 확정 채택하는 독립 검증은 아니다. 검토 인력/검토 가능 비율 기준을 정한 뒤, 다른 split에서 고른 threshold를 적용하는 교차 평가 또는 미사용 holdout으로 확인한다.
+
+### 기존 split 교차 선택 확인 (탐색 결과, 독립 holdout 아님)
+
+- 각 split을 한 번씩 평가용으로 두고 나머지 두 split에서 평균 F1(검토 정밀도와 오답 포착률의 조화평균)이 가장 큰 임계값을 선택했다. 후보는 앞 절에서 이미 관찰한 6개 값이므로 이 절차는 사후 탐색이며 독립 성능 추정치가 아니다.
+- 세 fold 모두 선택 임계값은 0.05였다.
+
+| 평가 seed | 선택 threshold | 검토율 | 검토 정밀도 | 오답 포착률 | F1 |
+|---:|---:|---:|---:|---:|---:|
+| 42 | 0.05 | 31.27% | 80.08% | 94.98% | 0.8690 |
+| 123 | 0.05 | 30.42% | 79.32% | 93.62% | 0.8588 |
+| 2026 | 0.05 | 29.89% | 83.29% | 90.61% | 0.8679 |
+
+- 기존 개발 split에서는 threshold 선택이 세 번 모두 같고 결과 범위도 비슷했다. 다만 약 30~31% 검토를 의미하므로, 실제 사람 검토 흐름의 처리 용량을 확인하지 않고 기본 정책으로 채택하지 않는다.
+- 임계값 탐색 결과를 이미 확인한 split들이므로 새 미사용 split이나 대회 제출 설정으로 승격하지 않았다. 다음엔 검토량 상한을 먼저 정하거나 새 고정 holdout을 마련한 뒤 threshold 하나를 사전 고정해 확인한다.
+
+### 15% 검토 한도용 고정 holdout 확인
+
+목표와 선택 기준:
+- 실제 인력 용량 수치가 주어지지 않아 15%를 실험용 검토 상한으로 설정했다. 앞선 threshold 0.01의 검토율이 약 15~16%였던 점을 바탕으로 한 작업 가정이며, 운영팀의 실제 처리 용량으로 확인된 숫자는 아니다.
+- 개발 split마다 검토율이 cap 이하인 threshold 중 평균 오답 포착률을 최대화하고, 동률이면 더 낮은 threshold를 선택했다. threshold는 `top_score - second_score <= threshold`일 때 현재 검토 규칙에 추가 표시한다.
+- 앞선 임계값 표를 이미 확인한 뒤 만든 holdout seed 31415/31416은 threshold 개발 자료로만 사용했다. 두 설정 모두 15%를 소폭 넘어서 최종 threshold는 개발 검토율을 13%로 제한하는 여유를 두고 다시 선택했다.
+
+Holdout 구성:
+- 최종 holdout: `experiments/splits/review_policy_holdout_seed31417.json`
+- seed 31417, 386개 target vessel 그룹·815행. 이전 seed 42/123/2026 valid 행과 holdout 31415/31416의 행 및 그룹과 겹치지 않음.
+- 고정 threshold `0.004642822894717291`은 5개 개발 세트(42/123/2026/31415/31416)에서 각각 review rate ≤13% 조건으로 선택한 뒤 holdout 31417 평가 전에 설정 파일에 기록했다.
+- 설정: `experiments/results/review_policy_holdout_20261018/frozen_threshold_seed31417.json`
+
+최종 holdout 결과:
+- 검토 요청 117/815행, **14.36%**로 실험 상한 15% 이내.
+- 239개 기본 오답 중 108개 포착: **오답 포착률 45.19%**.
+- 검토 117건 중 오답 108건: **검토 정밀도 92.31%**.
+- 언어별 표본은 한글 70행(21오답, 21검토, 정밀도 57.14%, 오답 포착 57.14%), 비한글 745행(218오답, 96검토, 정밀도 100%, 오답 포착 44.04%)이었다. 한글 표본이 작아 이 그룹 수치는 불확실성이 크다.
+- Holdout 31415/31416은 최초 설정의 한도를 각각 15.57%/15.14%로 넘겨 최종 설정의 독립 확인으로 사용하지 않았다.
+- 최종 holdout 가중 정확도는 0.811이지만 Korean 비율이 70/815로 작아 모델 성능 비교용으로 쓰지 않는다. 본 실험의 목적은 검토 신호의 커버리지다.
+- `agent/review_policy.py`와 제출 코드/ZIP은 수정하지 않았다. 선택한 threshold는 탐색 설정이며 제출 설정으로 승격하지 않았다.
+- 요약: `experiments/results/review_policy_holdout_20261018/summary_seed31417.json`.
+
+### Holdout 오답 원인 요약 (seed 31417)
+
+- 검토된 오답 108건과 검토되지 않은 오답 131건의 후보 특징을 집계했다. 입력과 매칭은 정답 ID를 받지 않았고, 예측 후 평가 단계에서만 target을 연결했다. 행별 기록은 저장하지 않았다.
+- 검토된 오답의 108건 중 정답 ID가 원래 후보 생성 결과에 포함된 것은 8건(7.41%)이고 top-5에 든 것은 4건(3.70%)이었다.
+- 놓친 오답 131건 중 정답 ID가 원래 후보 생성 결과에 포함된 것은 1건(0.76%), top-5 포함은 0건이었다. 전체 239개 오답에서 target candidate 포함률은 9/239(3.77%)였다.
+- 놓친 오답의 1위·2위 간 점수 차 중앙값은 0.02143으로 선택 임계값 0.00464보다 컸다. 해당 오답들의 1위 이름 유사도 평균은 0.377, 정답 선박의 이름 유사도 평균은 0.877이었다. 정답은 대체로 높은 이름 유사도를 보였지만 후보 검색에 들어오지 않아 순위 비교 대상이 아니었다.
+- 따라서 이번 holdout에서는 검토 임계값의 추가 조정보다 후보 생성 커버리지가 더 큰 병목으로 보인다. 단, holdout 한 개의 표본 분석이므로 원인 일반화는 제한한다.
+- 코드 확인 당시 `AdaptiveCatalogIndex.candidates_with_scores()`는 EXP-014 기본 경로만 사용했고 확장 검색은 아직 연결되지 않았다. 후속 구현·평가 결과는 아래 기록한다.
+- 집계: `experiments/results/review_policy_holdout_20261018/error_analysis_seed31417.json`.
+
+### 별도 확장 검색 `wide_v1` 실험
+
+- 목적: 검토되지 않은 오답 다수가 원래 후보 검색에서 정답 선박을 찾지 못한 현상을 대상으로, EXP-014 baseline은 보존하면서 더 넓은 후보 집합을 조회할 수 있는지 확인했다.
+- 구현: `AdaptiveCatalogIndex.expanded_candidates_with_scores(row, profile='wide_v1')`는 한글 선박명에만 `limit=80`, `cutoff=50`, `max_candidates=100`을 적용한다. `MatchingService.expand_search()`는 별도 `suggested_prediction`과 순위를 반환한다. `agent/tools.py`의 `expand_search` 도구로 노출하고, `agent/graph.py`는 결과를 `expanded_result`에 저장하며 추가 검색 예산을 제한한다. 기본 `match_vessel()` 및 제출 예측은 확장 결과로 덮어쓰지 않는다.
+- 새 고정 그룹 holdout: `experiments/splits/agent_expansion_holdout_seed31418.json` (308 target 그룹, 683행). 이전 valid 및 review-policy holdout과 행·그룹 중복이 없다.
+- 실제 LLM/API 없이 평가했다. 새 그래프 분기 단위 테스트에는 scripted local model stub을 사용했다. 실제 LLM의 도구 선택 성능은 검증하지 않았다.
+- 683행 전체에서 baseline과 `AdaptiveCatalogIndex.predict_row()` 예측 일치율은 100%였다. Korean subset은 60행이다.
+- Korean subset 평균 후보 수는 49.48에서 89.35로 약 1.8배 증가했다. 정답 후보 포함률은 83.33%로 그대로였고 신규 회수 target은 0건이었다. top-5 정답률도 71.67%로 변화가 없었다.
+- Korean top-1 정확도는 baseline과 `wide_v1` 모두 43.33%였다. 60건 중 4건에서 제안 1위가 달라졌지만 정확도 개선은 없었다. 평균 `expand_search()` 시간은 Korean 행당 12.57ms였다(확장 함수만 측정).
+- 판단: 후보 수는 늘었지만 target 회수율·top-5·정확도는 개선되지 않았다. `wide_v1`은 제출 파이프라인에 채택하지 않는다. 다음 후보 생성 실험은 다른 이름 정규화/문자 n-gram 등 별도 검색 신호를 같은 고정 그룹 기준으로 평가한다.
+- 요약: `experiments/results/agent_expansion_20261018/summary_seed31418.json`.
+
+### 문자 n-gram 후보 검색 단독 탐색
+
+- 가설: 로마자화 문자열에 문자 2~5-gram TF-IDF cosine 검색을 추가하면 EXP-014 fuzzy가 놓친 한글 선박 정답을 회수할 수 있다.
+- 사전 고정 설정: 카탈로그의 로마자화 선박명만으로 `TfidfVectorizer(analyzer='char', ngram_range=(2, 5), lowercase=False)`를 fit하고, 한글 입력의 로마자화 문자열에서 cosine 상위 100개를 검색한다. 카탈로그 외 데이터로 어휘를 학습하지 않고, 검증 행은 transform만 한다. n-gram은 후보 recall 신호로만 평가했으며 baseline 재랭킹·예측을 변경하지 않았다.
+- 새 target-group holdout: `experiments/splits/agent_ngram_holdout_seed31419.json`, seed 31419, 509행·신규 target 그룹 20%. 기존 group valid 42/123/2026 및 holdout 31415~31418의 valid 행을 제외한 후 생성했다.
+- 한글 subset 65행에서 baseline 정답 후보 포함률은 87.69%, n-gram 단독 top-100 포함률은 63.08%, n-gram top-5 포함률은 18.46%였다. baseline 후보와 n-gram 후보를 합쳐도 정답 포함률은 87.69%로 바뀌지 않았다.
+- baseline이 정답 후보를 놓친 8건 가운데 n-gram이 새로 회수한 정답은 0건(0%)이었다. 평균 후보 수는 baseline 49.55개, n-gram 100개, union 139.75개였다. 반복 실행에서 n-gram 검색 평균 시간은 한글 행당 34.15~39.43ms 범위였다(검색 측정 구간 기준). 후보 지표는 반복 실행에서 동일했다.
+- 같은 baseline 누락 8건의 진단: 로마자화 입력과 정답 catalog 이름이 완전히 같은 사례는 0건이었다. 정답의 fuzzy 점수는 모두 cutoff 50 이상(중앙값 51.32, 최솟값 50)이지만 전체 카탈로그 내 fuzzy 순위가 177~192위(중앙값 184.5)였다. 따라서 이 사례는 limit 40의 단순한 경계 바깥(예: 41~80위)에 있지 않으며, limit 80 확장만으로도 이 8건을 회수할 수 없다.
+- 정답 8건 모두 입력과 정답 이름 사이에 공유 char n-gram이 있었지만, n-gram 순위 중앙값은 8,655위였고 모두 top-100 밖이었다. 해당 표본에서는 단순 문자 겹침이 로마자 표기 대응을 충분히 잡지 못했다. 이는 이 8건의 관찰이며 전체 한글 기록의 원인으로 일반화하지 않는다.
+- 판단: 이 설정은 후보 수와 비용을 늘리면서 놓친 정답을 회수하지 못했다. 해당 설정을 후보 생성·재랭킹 또는 제출 코드에 채택하지 않는다. Korean 표본 65행인 단일 holdout 결과이므로 다른 n-gram 설정까지 일반화하지 않는다. 같은 holdout으로 설정을 반복 조정하지 않고 다음 가설은 별도 분할에서 평가한다.
+- 재현 코드: `scripts/agent_ngram_candidate_probe.py`; 집계 결과: `experiments/results/agent_ngram_20261018/summary_seed31419.json`.
+
+### `WRatio` 검색 점수 교체 탐색
+
+- 가설: `fuzz.WRatio`의 부분 문자열·단어 구성 비교가 기존 `fuzz.ratio`보다 로마자 표기 변형 후보를 더 잘 검색할 수 있다.
+- 사전 고정 설정: `romanized_name()`으로 만든 카탈로그·입력 이름에 `fuzz.WRatio`, `limit=100`, `score_cutoff=50`을 적용했다. 기존 후보와 합친 후보 포함률·후보 수·검색 시간만 확인했고, baseline의 재랭킹 및 예측은 변경하지 않았다.
+- 두 개의 새 target-group holdout을 순차 평가했다. seed 31420은 407행·36 Korean행, seed 31421은 337행·44 Korean행이며 두 holdout은 앞선 분할과 서로 겹치지 않는다.
+- 합계 Korean 80행 중 baseline 정답 후보 포함은 78행(97.50%), WRatio top-100 포함은 50행(62.50%)이었다. baseline과 합친 뒤도 78행(97.50%)으로 바뀌지 않았다. baseline 누락 2건(seed 31421) 중 새로 회수한 정답은 0건이다.
+- WRatio top-5 정답 포함은 21/80(26.25%)이었다. 평균 후보 수는 baseline 48.33개, WRatio 100개, union 137.38개였다. 두 holdout의 WRatio 검색 평균시간은 약 65.2~65.7ms/한글 행이었다.
+- 판단: WRatio 후보 검색은 baseline 누락 정답을 추가 회수하지 못했고 평균 후보 수와 처리시간만 늘렸다. 이 검색 경로를 채택하지 않는다. 80 Korean행 중 baseline 누락은 2건뿐이므로 효과 추정은 제한적이지만, 관측된 신규 회수는 없다.
+- 재현 코드: `scripts/agent_wratio_candidate_probe.py`; holdout 요약: `experiments/results/agent_wratio_20261018/summary_seed31420.json`, `summary_seed31421.json`.
+
+### 학습형 로마자 표기 변환 spike
+
+- 가설: 공식 train의 한글 선박명과 target 카탈로그 영문명 쌍을 정렬해 반복 관찰된 짧은 문자 변환 규칙을 학습하면, 단일 `Unidecode` 표기가 놓친 후보를 찾을 수 있다.
+- 규칙 학습은 `learn_edit_rules()`에서 수행한다. `SequenceMatcher`의 교체·삽입·삭제 구간 중 길이 2 이하인 패턴만 모으고, 서로 다른 target vessel 그룹 3개 이상에서 나온 규칙만 사용한다. `generate_variants()`는 입력 주변 문자 문맥까지 맞는 규칙만 적용해 최대 20개 변형을 만든다. 외부 사전·패키지는 쓰지 않았다.
+- 평가 설정: 변형 문자열마다 `fuzz.ratio`, limit 40, cutoff 50으로 검색하고, 점수 상위 100개까지 별도 후보로 반환했다. EXP-014 기본 후보·순위·예측은 유지했다. 두 새 target-group holdout seed 31422/31423을 사용했다. 규칙은 두 신규 holdout target group을 모두 제외한 공개 train/catalog 행에서 학습했다.
+- 학습 가능 데이터는 이전 탐색용 holdout 그룹을 제외한 848행·403 target 그룹으로 제한됐다. 두 holdout Korean 행은 23행과 4행(합계 27행)이었다. 이 작은 표본으로 판단하는 데 한계가 있다.
+- 학습된 규칙은 2개였으나 holdout 질의에 적용된 변형 수 평균은 0이었다. 두 split의 baseline 누락은 합계 6건이며 새로 회수한 정답은 0건이었다. union 후보 포함률은 baseline과 동일했고 평균 후보 수는 약 49.52개로 늘지 않았다.
+- 판단: 이 제한된 학습 자료와 문맥 일치 규칙 설정에서는 실용적인 변형을 만들지 못했다. 현 방식을 후보 생성이나 제출 코드에 채택하지 않는다. 표본이 작아 학습형 표기 변환 전반이 무효라고 결론 내리지는 않는다.
+- 집계 결과: `experiments/results/agent_learned_transliteration_20261018/summary.json`; holdout 설정: `experiments/splits/agent_learned_transliteration_holdout_seed31422.json`, `agent_learned_transliteration_holdout_seed31423.json`.
+
+### LLM 구조화 오류 분석 실험 (2026-10-18)
+
+- 아이디어: *Entity Matching using Large Language Models*의 구조화된 설명·자동 오류 유형 발견 절차를 적용했다. 후보 쌍을 입력/오답 1위/정답 target으로 구성하고, LLM은 예측을 변경하지 않고 반복 오류 원인과 다음 결정적 검색 실험 가설만 제시했다.
+- 데이터: `train.csv`, `vessel_catalog.csv`만 사용했다. `experiments/splits/`에 기록된 기존 13개 split의 validation sample이 속한 target 그룹 5,584개를 제외하고, 남은 267개 그룹·462행을 고정 분석 holdout(seed 31424)으로 사용했다. 한글 행은 38개로 적다. 비공개 `test.csv`는 읽거나 전송하지 않았다.
+- EXP-014 baseline: 전체 정확도 0.70779, 한글 0.81579 (38행), 비한글 0.69811 (424행), 가중 점수 0.78049. 462행 중 135개 오답이었고, 정답 target이 후보에 없는 오류가 131개, 후보 안에서 순위가 뒤집힌 오류가 4개였다. 이 residual holdout 분포는 기존 validation과 다르므로 종전 leaderboard 평가와 직접 비교하지 않는다.
+- 오답 40개를 언어와 실패 단계에 걸쳐 층화 표집해 GPT-5.6 Luna API로 분석했다(한글 7, 비한글 33; 후보 검색 실패 36, 순위 실패 4). 사용량 15,571 input / 1,594 output tokens, 가격표 기준 추정 비용 $0.005027, API 경과 17.1초. 응답은 오류 유형의 통합 집계만 저장하고 개별 입력·sample ID는 저장하지 않았다.
+- 주요 제안은 오타 내성 후보 검색(표집된 비한글 검색 실패 33개), 교차 문자체계 이름 신호(한글 검색/순위 오류), 결측 톤수 시 이름 우선 경로였다. 유형 간 case ID는 중복되며, 이 건수는 모집단 유병률 추정이 아니다.
+- 사람 검토에서 LLM의 `feature_schema_or_category_mismatch` 설명은 현재 `base_features()`가 사용하는 특징에 `flag_name`·`vessel_type`이 없으므로 원인으로 기각했다. 즉 LLM 유형은 가설 생성용이며 코드를 읽어 반증 확인해야 한다. `missed_typo_tolerant_name_retrieval`은 이번 표집의 target-name `name_ratio` 평균이 0.935였고, `AdaptiveCatalogIndex._candidates_with_scores()`의 fuzzy 검색이 한글 입력에만 실행되며 `generate_base_candidates()`는 비한글에서 정규화 완전일치와 GT 최근접 10개만 쓰는 사실과 일치하는 유력 가설이다.
+- 결론: 자동 오류 분석은 검색 단계와 이름 변형 문제를 우선 조사할 가설로 좁히는 데 유용했지만, 정확도 개선 효과를 측정한 실험은 아니다. `adaptive_lib.py`, 제출 예측기 및 EXP-014 설정은 변경하지 않았다. seed 31424는 가설 도출에 사용했으므로 검색 규칙을 튜닝·평가하는 holdout으로 재사용하지 않는다. 새 데이터/미사용 holdout을 확보하기 전에는 제안 규칙을 채택하지 않는다.
+- 재현 코드와 집계: `scripts/agent_llm_error_analysis_probe.py`, `experiments/splits/agent_llm_error_analysis_holdout_seed31424.json`, `experiments/results/agent_llm_error_analysis_20261018/summary.json`.
+
+### EXP-022: 비한글 fuzzy 후보 검색 재검증 및 제출 후보 (2026-10-18)
+
+- 가설: 기존 `AdaptiveCatalogIndex.candidates_with_scores()`는 한글 이름에만 fuzzy 검색을 수행한다. 비한글 이름에도 `rapidfuzz.fuzz.ratio`로 상위 40개(`score_cutoff=50`)를 찾아 기존 정확 이름·톤수 후보 앞에 합치면 철자 변형으로 빠진 정답 후보를 회수할 수 있다. 비한글에는 fuzzy 보너스 점수를 적용하지 않고 기존 `base_features()`와 동점 규칙을 유지한다.
+- 평가 전 고정: `experiments/splits/exp022_group_seed31425.json`에 seed 31425, target ID 그룹 분할, 기준 EXP-014 ZIP·공식 데이터 해시, 변경 규칙과 통과 조건을 저장했다. 1,170개 target 그룹·2,481행이며 학습 쪽 그룹과 겹치지 않는다. **과거 실험에서 사용한 train 행과는 겹치므로 완전히 미사용한 holdout은 아니다.** 이전 오류 분석용 seed 31424의 고정 분할을 재사용하지 않았다.
+- 사전 통과 조건: 가중 점수 +0.02 이상, 전체 정답 후보 회수율 +0.10 이상, 한글 정확도 비하락, 평균 후보 50개 이하, 행당 최대 60개, 인덱스 구축 시간을 포함한 3,000행 환산 600초 이하. 설정을 이 분할의 결과에 맞춰 다시 고르지 않았다.
+
+| 지표 | EXP-014 | EXP-022 |
+|---|---:|---:|
+| 전체 정확도 | 0.737606 | 0.968158 |
+| 한글 정확도 (238행) | 0.705882 | 0.705882 |
+| 비한글 정확도 (2,243행) | 0.740972 | 0.995988 |
+| 가중 점수 (반올림 전) | 0.716409 | 0.792914 |
+| 전체 정답 후보 회수율 | 0.760177 | 0.993551 |
+| 비한글 정답 후보 회수율 | 0.741418 | 0.999554 |
+| 평균 후보 수 | 13.44 | 48.68 |
+| 최대 후보 수 | 50 | 50 |
+| 비교 평가 시간 (2,481행, 인덱스 구축 제외) | 11.57초 | 41.31초 |
+
+- 변경된 예측은 581건으로, 기준 오답을 정답으로 바꾼 건 572건, 새 오답을 만든 건 0건이었다. 사전 고정 통과 조건은 모두 만족했다. 시간 수치는 로컬 개발 환경 기준이다.
+- 제출 후보는 기존 `submissions/final_exp014.zip`의 세 파일을 출발점으로 만든 ZIP이며, 현재 파일명은 `submissions/final_exp022.zip`이다. ZIP SHA-256은 `fd7833eba4f0c417c226ca8054a828b3f1963195cd64331a63267f761d874255`로 최초 생성본과 같다. 작업 중인 `submit/model/adaptive_lib.py`의 에이전트 실험용 확장 경로는 ZIP에 포함하지 않았다.
+- ZIP을 새 폴더에 풀어 공식 train에서 정답 컬럼을 뺀 3,000행을 두 번 실행했다. 실행 시간 35.33초/34.74초, 출력 3,000행·`sample_id,target_vessel_id` 컬럼·입력 순서·카탈로그 ID 범위·두 실행의 동일 예측을 확인했다. 10행 순서 변경과 단독 행 실행의 예측이 같았고, 패키지 예측이 독립 평가 규칙의 예측과 일치했다. 검증 결과: `experiments/results/exp022_non_korean_fuzzy_seed31425/package_verification.json`.
+- 판단: 로컬에서 제출할 가치가 있는 **후보 패키지**다. 과거 탐색과 겹친 자료의 성능이므로 비공개 테스트 점수는 보장할 수 없다. 패키지 생성·검증 당시에는 DACON 업로드를 진행하지 않았다. 공식 평가 페이지(2026-10-18)는 Public을 일부 데이터, Private를 전체 테스트 데이터로 설명하므로 종전 문서의 Public 100% 표기는 수정했다.
+- 리더보드 결과(사용자 보고, 2026-10-18): `submissions/final_exp022.zip`으로 **0.7513333333**. 기존 EXP-014의 **0.6763333333**보다 **+0.0750000000** 높다. 현재 ZIP의 SHA-256이 위 실험 산출물 해시와 일치함을 로컬에서 확인했다. 리더보드의 한글·비한글별 점수와 비공개 테스트 점수는 제공되지 않아 언어별 실제 개선 원인이나 Private 성능은 판단하지 않는다.
+- 재현: `scripts/exp022_non_korean_fuzzy_gate.py`, `scripts/package_exp022.py`, `experiments/results/exp022_non_korean_fuzzy_seed31425/summary.json`.

@@ -19,6 +19,9 @@ MAX_CANDIDATES = 60
 EXPANDED_FUZZY_LIMIT = 20
 EXPANDED_FUZZY_CUTOFF = 55
 EXPANDED_MAX_CANDIDATES = 40
+WIDE_V1_FUZZY_LIMIT = 80
+WIDE_V1_FUZZY_CUTOFF = 50
+WIDE_V1_MAX_CANDIDATES = 100
 TOP1_THRESHOLD = 0.70
 MARGIN_THRESHOLD = 0.02
 FUZZY_SCORE_BONUS = 0.25
@@ -188,10 +191,14 @@ class AdaptiveCatalogIndex:
             and margin < MARGIN_THRESHOLD
         )
 
-    def candidates_with_scores(self, row: dict) -> tuple[list[int], dict[int, float]]:
-        fuzzy_limit = FUZZY_LIMIT
-        fuzzy_cutoff = FUZZY_CUTOFF
-        max_candidates = MAX_CANDIDATES
+    def _candidates_with_scores(
+        self,
+        row: dict,
+        *,
+        fuzzy_limit: int,
+        fuzzy_cutoff: int,
+        max_candidates: int,
+    ) -> tuple[list[int], dict[int, float]]:
         base_indices = self.generate_base_candidates(row, max_candidates)
         fuzzy_indices: list[int] = []
         fuzzy_scores: dict[int, float] = {}
@@ -221,6 +228,30 @@ class AdaptiveCatalogIndex:
             if len(merged) >= max_candidates:
                 break
         return merged, fuzzy_scores
+
+    def candidates_with_scores(self, row: dict) -> tuple[list[int], dict[int, float]]:
+        """Return the frozen EXP-014 candidate set without changing its settings."""
+        return self._candidates_with_scores(
+            row,
+            fuzzy_limit=FUZZY_LIMIT,
+            fuzzy_cutoff=FUZZY_CUTOFF,
+            max_candidates=MAX_CANDIDATES,
+        )
+
+    def expanded_candidates_with_scores(
+        self, row: dict, *, profile: str = "wide_v1"
+    ) -> tuple[list[int], dict[int, float]]:
+        """Return a separate broader candidate set for Korean vessel names."""
+        if profile != "wide_v1":
+            raise ValueError(f"지원하지 않는 확장 검색 profile: {profile}")
+        if not is_korean(row.get("vessel_name")):
+            raise ValueError("wide_v1 확장 검색은 한글 선박명만 지원합니다")
+        return self._candidates_with_scores(
+            row,
+            fuzzy_limit=WIDE_V1_FUZZY_LIMIT,
+            fuzzy_cutoff=WIDE_V1_FUZZY_CUTOFF,
+            max_candidates=WIDE_V1_MAX_CANDIDATES,
+        )
 
     def predict_row(self, row: dict) -> str:
         candidate_indices, fuzzy_scores = self.candidates_with_scores(row)

@@ -1,4 +1,4 @@
-"""DACON submission entry point for the EXP-013 adaptive pipeline."""
+"""DACON submission entry point for the validated EXP-014 pipeline."""
 
 from pathlib import Path
 import sys

@@ -27,6 +27,16 @@ def build_agent_tools(service: MatchingService) -> list[Any]:
         )
 
     @tool
+    def expand_search(payload: dict, profile: str = "wide_v1", top_k: int = 5) -> str:
+        """Search a wider Korean-name candidate set without replacing baseline."""
+        record = validate_record(payload)
+        return json.dumps(
+            asdict(service.expand_search(record, profile=profile, top_k=top_k)),
+            ensure_ascii=False,
+            allow_nan=False,
+        )
+
+    @tool
     def compare_candidates(payload: dict, candidate_ids: list[str]) -> str:
         """Compare up to five existing catalog IDs for one record."""
         record = validate_record(payload)
@@ -54,4 +64,4 @@ def build_agent_tools(service: MatchingService) -> list[Any]:
         }
         return json.dumps(request, ensure_ascii=False)
 
-    return [match_vessel, compare_candidates, request_review]
+    return [match_vessel, expand_search, compare_candidates, request_review]
