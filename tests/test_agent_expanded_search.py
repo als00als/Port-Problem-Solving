@@ -6,8 +6,8 @@ from langchain_core.messages import AIMessage
 
 from agent.graph import run_agent
 from agent.tools import build_agent_tools
-from submit.model.matching_service import MatchingService
-from submit.model.record_validation import VesselRecord
+from agent.legacy_matching.matching_service import MatchingService
+from agent.legacy_matching.record_validation import VesselRecord
 
 
 def make_service() -> MatchingService:

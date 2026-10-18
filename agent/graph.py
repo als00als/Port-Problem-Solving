@@ -11,12 +11,13 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, Tool
 from langgraph.graph import END, START, StateGraph
 from langgraph.prebuilt import ToolNode
 
-from submit.model.matching_service import MatchingService, MatchResult
-from submit.model.record_validation import validate_record
+from .legacy_matching.matching_service import MatchingService, MatchResult
+from .legacy_matching.record_validation import validate_record
 
 from .review_policy import ReviewPolicy, assess_review_need
 from .schemas import AgentState
 from .tools import build_agent_tools
+from .integrated_service import IntegratedMatchingService
 
 
 DEFAULT_MAX_TOOL_CALLS = 6
@@ -43,20 +44,32 @@ def _policy(config: dict[str, Any]) -> ReviewPolicy:
 
 
 def _format_report(state: AgentState) -> str:
-    result = state.get("baseline_result") or {}
+    result = state.get("primary_result") or state.get("baseline_result") or {}
+    legacy = state.get("legacy_result") or {}
     signals = state.get("review_signals") or {}
     prediction = result.get("baseline_prediction")
+    prediction_source = result.get("prediction_source", "ranking")
     candidates = result.get("top_rank") or []
     if prediction is None:
         summary = "기본 매칭 결과를 만들지 못했습니다."
     else:
-        summary = f"기본 추천: {prediction}"
+        model_name = result.get("model_name", "EXP-014")
+        summary = f"{model_name} 기본 추천: {prediction}"
+        if prediction_source != "ranking":
+            summary += f" (공식 train 조회: {prediction_source})"
     if candidates:
         first = candidates[0]
-        summary += (
-            f" ({first.get('catalog_name', '이름 미상')}, "
-            f"점수 {first.get('final_score', 0.0):.6f})"
-        )
+        rank_label = "모델 원점수" if result.get("model_name") == "team_v11" else "점수"
+        if first.get("vessel_id") == prediction:
+            summary += (
+                f" ({first.get('catalog_name', '이름 미상')}, "
+                f"{rank_label} {first.get('final_score', 0.0):.6f})"
+            )
+        else:
+            summary += f". 랭커 1위: {first.get('vessel_id')} ({rank_label} {first.get('final_score', 0.0):.6f})"
+    legacy_prediction = legacy.get("baseline_prediction")
+    if legacy_prediction is not None:
+        summary += f". 기존 EXP-014 비교 추천: {legacy_prediction}"
     if signals.get("review_required"):
         reasons = ", ".join(signals.get("reasons", [])) or "unspecified"
         summary += f". 사람 검토 필요: {reasons}"
@@ -66,7 +79,7 @@ def _format_report(state: AgentState) -> str:
 
 
 def build_agent_graph(
-    service: MatchingService,
+    service: MatchingService | IntegratedMatchingService,
     model: Any = None,
     checkpointer: Any = None,
     config: dict[str, Any] | None = None,
@@ -100,6 +113,16 @@ def build_agent_graph(
             record = validate_record(state["input_record"])
             result = service.match_vessel(record)
             result_dict = asdict(result)
+            legacy_match = getattr(service, "legacy_match_vessel", None)
+            legacy_result = None
+            comparison_errors = []
+            if legacy_match is not None:
+                try:
+                    legacy_result = asdict(legacy_match(record))
+                except Exception as exc:
+                    comparison_errors.append(
+                        f"기존 EXP-014 비교 실패: {type(exc).__name__}: {exc}"
+                    )
             signals = assess_review_need(
                 result,
                 review_policy,
@@ -107,10 +130,13 @@ def build_agent_graph(
             )
             status = "needs_review" if signals.review_required else "completed"
             return {
-                "baseline_result": result_dict,
+                "baseline_result": legacy_result if legacy_match is not None else result_dict,
+                "primary_result": result_dict,
+                "legacy_result": legacy_result,
                 "review_signals": asdict(signals),
                 "evidence": result_dict.get("top_rank", []),
                 "status": status,
+                "errors": comparison_errors,
             }
         except Exception as exc:
             return {
@@ -146,7 +172,8 @@ def build_agent_graph(
                     content=(
                         "You are an offline vessel-match review planner. "
                         "Use only the supplied matching tools. Never infer or invent catalog facts. "
-                        "The baseline prediction is fixed; additional tools cannot overwrite it. "
+                        "The primary prediction is fixed; additional tools cannot overwrite it. "
+                        "Expansion and candidate comparison use the legacy model, so their scores are not comparable to v11 scores. "
                         "Do not request external data or expose the input outside this run. "
                         "If the result is ambiguous, request human review."
                     )
@@ -154,7 +181,8 @@ def build_agent_graph(
                 HumanMessage(
                     content=(
                         f"Validated input: {state.get('input_record')}\n"
-                        f"Baseline result: {state.get('baseline_result')}\n"
+                        f"Primary result: {state.get('primary_result')}\n"
+                        f"Legacy comparison: {state.get('legacy_result')}\n"
                         f"Review signals: {state.get('review_signals')}"
                     )
                 ),
@@ -313,7 +341,7 @@ def build_agent_graph(
 def run_agent(
     record: dict[str, Any],
     *,
-    service: MatchingService,
+    service: MatchingService | IntegratedMatchingService,
     session_id: str,
     config: dict[str, Any] | None = None,
     model: Any = None,
@@ -334,6 +362,8 @@ def run_agent(
         "session_id": session_id,
         "input_record": record,
         "baseline_result": None,
+        "primary_result": None,
+        "legacy_result": None,
         "expanded_result": None,
         "review_signals": None,
         "evidence": [],

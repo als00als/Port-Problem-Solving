@@ -9,16 +9,17 @@ from uuid import uuid4
 
 from langchain_core.tools import tool
 
-from submit.model.matching_service import MatchingService
-from submit.model.record_validation import validate_record
+from .legacy_matching.matching_service import MatchingService
+from .legacy_matching.record_validation import validate_record
+from .integrated_service import IntegratedMatchingService
 
 
-def build_agent_tools(service: MatchingService) -> list[Any]:
+def build_agent_tools(service: MatchingService | IntegratedMatchingService) -> list[Any]:
     """Expose matching and review-request operations, with no filesystem tools."""
 
     @tool
     def match_vessel(payload: dict, top_k: int = 5) -> str:
-        """Match one record against the vessel catalog and return ranked evidence."""
+        """Return the primary model's ranked match for one record."""
         record = validate_record(payload)
         return json.dumps(
             asdict(service.match_vessel(record, top_k=top_k)),
@@ -28,7 +29,7 @@ def build_agent_tools(service: MatchingService) -> list[Any]:
 
     @tool
     def expand_search(payload: dict, profile: str = "wide_v1", top_k: int = 5) -> str:
-        """Search a wider Korean-name candidate set without replacing baseline."""
+        """Search wider Korean candidates with the legacy EXP-014 model; primary prediction stays fixed."""
         record = validate_record(payload)
         return json.dumps(
             asdict(service.expand_search(record, profile=profile, top_k=top_k)),
@@ -38,7 +39,7 @@ def build_agent_tools(service: MatchingService) -> list[Any]:
 
     @tool
     def compare_candidates(payload: dict, candidate_ids: list[str]) -> str:
-        """Compare up to five existing catalog IDs for one record."""
+        """Compare up to five catalog IDs using legacy EXP-014 evidence."""
         record = validate_record(payload)
         evidence = service.compare_candidates(record, candidate_ids)
         return json.dumps(
