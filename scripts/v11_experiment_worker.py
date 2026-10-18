@@ -1,7 +1,7 @@
-"""Train and evaluate one v11 search setting on the fixed vessel-group split.
+"""Train and evaluate v11 search settings on fixed, audited splits.
 
-Run this worker with the Python 3.11 competition environment. The experiment
-graph calls it once per setting; no validation label is passed to inference.
+Run this worker with the Python 3.11 competition environment. The LLM screen
+keeps one baseline ranker fixed per split; no validation label reaches inference.
 """
 
 from __future__ import annotations
@@ -20,6 +20,7 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from agent.team_v11.source import train as trainer  # noqa: E402
+from agent.search_policy import augment_candidates_and_features, validate_proposals  # noqa: E402
 from src.metric import calculate_score, is_korean  # noqa: E402
 
 
@@ -62,6 +63,10 @@ def load_audited_data(split_name: str):
         "split_sha256": sha256(split_path),
         "match_lib_sha256": sha256(ROOT / "agent" / "team_v11" / "source" / "match_lib.py"),
         "train_code_sha256": sha256(ROOT / "agent" / "team_v11" / "source" / "train.py"),
+        "experiment_worker_sha256": sha256(Path(__file__)),
+        "experiment_graph_sha256": sha256(ROOT / "agent" / "experiment_graph.py"),
+        "search_policy_sha256": sha256(ROOT / "agent" / "search_policy.py"),
+        "llm_planner_sha256": sha256(ROOT / "agent" / "llm_search_planner.py"),
     }
     for current_key, recorded_key in (("train_sha256", "train_sha256"),
                                       ("catalog_sha256", "catalog_sha256"),
@@ -212,20 +217,145 @@ def evaluate(setting_name: str, split_name: str) -> dict:
         trainer.NO_DICT, trainer.ml.USE_VOCAB, trainer.ml.VOCAB_TOP = original
 
 
+def _rank_fixed_model(model, inputs: pd.DataFrame, index, resources: dict,
+                      candidate_lists: list[np.ndarray], features: np.ndarray) -> list[str]:
+    scores = model.predict(features)
+    predictions: list[str] = []
+    offset = 0
+    for row, candidates in zip(inputs.to_dict("records"), candidate_lists):
+        local = scores[offset:offset + len(candidates)]
+        offset += len(candidates)
+        best = str(index.ids[candidates[int(np.argmax(local))]])
+        best = trainer.ml.lookup_by_name(row, resources, index) or best
+        best = resources["callsign"].get(row.get("call_sign"), best)
+        predictions.append(str(best))
+    if offset != len(features) or len(predictions) != len(inputs):
+        raise AssertionError("후보 특징과 예측 행 수가 다릅니다")
+    return predictions
+
+
+def _screen_predictions(model, inputs: pd.DataFrame, index, resources: dict,
+                        policy: dict | None):
+    queries = [trainer.ml.prepare_query(row, resources) for row in inputs.to_dict("records")]
+    base_candidates, base_features = trainer.ml.candidates_and_features(queries, index, resources)
+    if policy is None:
+        candidates, features = base_candidates, base_features
+    else:
+        candidates, features = augment_candidates_and_features(
+            queries, index, resources, policy, trainer.ml, base_candidates, base_features
+        )
+    predictions = _rank_fixed_model(model, inputs, index, resources, candidates, features)
+    return predictions, candidates
+
+
+def _screen_result(split_name: str, setting_name: str, policy: dict | None,
+                   model, inputs: pd.DataFrame, valid: pd.DataFrame,
+                   index, resources: dict, fit_targets: set[str],
+                   audit: dict, train_seconds: float, train_recall: float,
+                   policy_sha256: str) -> dict:
+    started = time.monotonic()
+    predictions, candidates = _screen_predictions(model, inputs, index, resources, policy)
+    prediction_seconds = time.monotonic() - started
+    if not set(predictions) <= set(index.ids):
+        raise AssertionError("검색 정책의 예측 ID가 카탈로그 밖에 있습니다")
+    hangul = np.array([is_korean(name) for name in valid["vessel_name"]], dtype=bool)
+    chosen = {0, len(valid) // 2, len(valid) - 1,
+              int(np.flatnonzero(hangul)[0]), int(np.flatnonzero(~hangul)[0])}
+    picked = sorted(chosen)
+    subset_predictions, _ = _screen_predictions(model, inputs.iloc[picked[::-1]], index, resources, policy)
+    singles = [_screen_predictions(model, inputs.iloc[[i]], index, resources, policy)[0][0]
+               for i in picked]
+    if (subset_predictions != [predictions[i] for i in picked[::-1]]
+            or singles != [predictions[i] for i in picked]):
+        raise ValueError("LLM 검색 정책의 행 독립성 검사에 실패했습니다")
+    true_ids = valid["target_vessel_id"].astype(str).to_numpy()
+    correct = true_ids == np.asarray(predictions, dtype=str)
+    truth_indices = [index.id_to_index[value] for value in true_ids]
+    hits = np.array([truth in cand for truth, cand in zip(truth_indices, candidates)], dtype=bool)
+    sizes = np.array([len(cand) for cand in candidates], dtype=np.int64)
+    seen = valid["target_vessel_id"].isin(fit_targets).to_numpy(bool)
+    metric = calculate_score(true_ids, predictions, valid["vessel_name"])
+    return {
+        "split_name": split_name,
+        "setting": setting_name,
+        "configuration": {"search_policy": policy, "no_dict": True,
+                          "use_callsign": True, "use_name_lookup": True,
+                          "ranker": "v11_baseline_LGBMRanker_fixed_for_search_screen"},
+        "metrics": {"official": metric,
+                    "weighted_raw": 0.7 * metric["korean"] + 0.3 * metric["non_korean"],
+                    "all": group_stats(np.ones(len(valid), dtype=bool), correct, hits, sizes),
+                    "korean": group_stats(hangul, correct, hits, sizes),
+                    "non_korean": group_stats(~hangul, correct, hits, sizes),
+                    "seen_target": group_stats(seen, correct, hits, sizes),
+                    "unseen_target": group_stats(~seen, correct, hits, sizes)},
+        "timing_seconds": {"training_shared_baseline": train_seconds,
+                           "validation_prediction": prediction_seconds},
+        "training_candidate_recall_before_forced_truth": train_recall,
+        "leakage_checks": {"target_group_overlap": audit["target_group_overlap"],
+                           "group_disjoint_when_required": split_name != "group" or audit["target_group_overlap"] == 0,
+                           "validation_label_removed_before_prediction": True,
+                           "lookup_ids_subset_of_training_targets": True,
+                           "validation_candidates_not_forced": True,
+                           "row_independence_checked_rows": len(picked),
+                           "row_independence_passed": True},
+        "input_hashes": audit["hashes"],
+        "policy_file_sha256": policy_sha256,
+    }
+
+
+def screen_policies(split_name: str, policy_path: Path) -> dict:
+    policies = validate_proposals(json.loads(policy_path.read_text(encoding="utf-8")))
+    fit, valid, catalog, audit = load_audited_data(split_name)
+    index = trainer.ml.CatalogIndex(catalog)
+    original = (trainer.NO_DICT, trainer.ml.USE_VOCAB, trainer.ml.VOCAB_TOP)
+    trainer.NO_DICT, trainer.ml.USE_VOCAB, trainer.ml.VOCAB_TOP = True, False, 3
+    try:
+        print(f"{split_name}: LLM 검색 비교용 기준 랭커 학습 시작", flush=True)
+        started = time.monotonic()
+        model, train_recall = trainer.fit(fit, catalog, index)
+        train_seconds = time.monotonic() - started
+        resources = trainer.resources(fit, catalog)
+        fit_targets = set(fit["target_vessel_id"])
+        lookup_ids = set(resources["callsign"].values())
+        lookup_ids.update(vid for votes in resources["name_lookup"].values() for vid in votes)
+        if not lookup_ids <= fit_targets:
+            raise ValueError("조회표에 학습 외 target이 포함됐습니다")
+        inputs = valid.drop(columns=["target_vessel_id"])
+        if "target_vessel_id" in inputs.columns:
+            raise AssertionError("검증 정답이 추론 입력에 남았습니다")
+        results = []
+        for policy in [None, *policies]:
+            name = "v11_baseline" if policy is None else policy["name"]
+            print(f"{split_name}/{name}: 고정 랭커 검색 비교 ({len(valid)}행)", flush=True)
+            results.append(_screen_result(
+                split_name, name, policy, model, inputs, valid, index, resources,
+                fit_targets, audit, train_seconds, float(train_recall), sha256(policy_path)
+            ))
+        return {"split_name": split_name, "mode": "fixed_ranker_search_screen",
+                "audit": audit, "results": results}
+    finally:
+        trainer.NO_DICT, trainer.ml.USE_VOCAB, trainer.ml.VOCAB_TOP = original
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("mode", choices=("audit", "evaluate"))
+    parser.add_argument("mode", choices=("audit", "evaluate", "screen"))
     parser.add_argument("--split", choices=SPLITS, required=True)
     parser.add_argument("--setting", choices=SETTINGS)
+    parser.add_argument("--policies", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if args.mode == "audit":
         _, _, _, result = load_audited_data(args.split)
         result["available_settings"] = SETTINGS
-    else:
+    elif args.mode == "evaluate":
         if args.setting is None:
             parser.error("evaluate에는 --setting이 필요합니다")
         result = evaluate(args.setting, args.split)
+    else:
+        if args.policies is None:
+            parser.error("screen에는 --policies가 필요합니다")
+        result = screen_policies(args.split, args.policies)
     write_json(args.output, result)
     print(f"기록: {args.output}", flush=True)
 
