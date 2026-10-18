@@ -6,8 +6,8 @@ from dataclasses import dataclass
 from math import isclose
 from typing import Any
 
-from submit.model.matching_service import MatchResult
-from submit.model.record_validation import VesselRecord
+from .legacy_matching.matching_service import MatchResult
+from .legacy_matching.record_validation import VesselRecord
 
 from .schemas import ReviewSignals
 

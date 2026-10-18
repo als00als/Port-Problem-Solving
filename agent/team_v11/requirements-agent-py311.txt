@@ -1,0 +1,8 @@
+# 로컬 검토 에이전트 전용 Python 3.11 환경. 제출 ZIP에 넣지 않는다.
+pandas==2.0.3
+numpy==1.26.4
+lightgbm==4.6.0
+rapidfuzz==3.14.3
+Unidecode==1.4.0
+langgraph==1.2.16
+langchain-core==1.6.12

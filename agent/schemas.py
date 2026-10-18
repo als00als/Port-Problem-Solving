@@ -7,7 +7,7 @@ from typing import Annotated, Any, Literal, TypedDict
 
 from langgraph.graph.message import add_messages
 
-from submit.model.record_validation import VesselRecord, validate_record
+from .legacy_matching.record_validation import VesselRecord, validate_record
 
 
 AgentStatus = Literal[
@@ -59,7 +59,9 @@ class AgentState(TypedDict, total=False):
     run_id: str
     session_id: str
     input_record: dict[str, Any]
+    primary_result: dict[str, Any] | None
     baseline_result: dict[str, Any] | None
+    legacy_result: dict[str, Any] | None
     expanded_result: dict[str, Any] | None
     review_signals: dict[str, Any] | None
     evidence: list[dict[str, Any]]
