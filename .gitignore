@@ -229,3 +229,7 @@ GPT.md
 notebooks/test_metric.ipynb
 notebooks/test_metric.ipynb
 notebooks/test_metric.ipynb
+dev_agent.md
+baseline_submit/
+data/
+submit/
