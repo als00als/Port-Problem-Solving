@@ -1176,3 +1176,154 @@ Holdout 구성:
 - **실험 에이전트:** `agent/experiment_graph.py`가 공식 입력·분할 감사, 제한된 가설·설정 생성, 설정별 재학습·고정 검증, 후보 포함률·최종 점수 비교, 집계 결과 기록을 순서대로 실행한다. 진입점은 `scripts/run_v11_experiment_agent.py`, 학습 작업자는 `scripts/v11_experiment_worker.py`다. 새 설정은 v11 기준과 공식 catalog 단어장 확장 상위 1개·3개의 허용 목록에서 생성한다. 외부 LLM, 임의 코드 수정, 제출 모델 자동 교체, 리더보드 제출 기능은 없다.
 - **실험 판단:** 앞선 5-fold 한글 후보 진단에서는 기준·확장 모두 정답 후보 포함 `1,191/1,191`이었다. 이후 두 고정 seed42 분할에서 설정별 랭커까지 재학습했다. 그룹 분할의 가중 원점수는 기준·확장 1개가 `0.999572`, 확장 3개가 `0.999429`였고 한글 후보 포함은 모두 `243/243`이었다. 행 분할에서는 세 설정 모두 `2,445/2,445` 정답이었다. 후보 수는 늘었지만 점수 개선이 없어 단어장 확장을 제출 모델에 채택하지 않았다. 상세 행 수·언어별 정확도·누수 점검은 바로 위 통합 실행 항목과 해당 `summary.json`을 따른다.
 - **해석과 보존:** 검증 정답 열 제거, 그룹 분할 target 겹침 0, 학습 분할만 사용한 조회표, 설정별 4개 행의 단독·부분집합 예측 일치를 확인했다. 전체 행 독립성 전수 검사는 아니며 모든 기존 target 그룹이 과거 분석에 노출되어 점수는 탐색용이다. 기존 변경사항과 제출 ZIP을 보존했고 이 흐름에서 새 리더보드 제출은 하지 않았다.
+
+### LLM 검색 정책 제안 경로 구현 (2026-10-19, 실행 결과 아님)
+
+- `scripts/run_v11_experiment_agent.py --planner llm` 선택 경로를 추가했다. LLM은 정적 과제 설명과 제한된 JSON 형식만 받아 검색 정책 1~2개를 제안하며, 공식 train/catalog의 행·정답·점수 집계는 API에 전송하지 않도록 구현했다.
+- 정책은 언어 조건, 이름 표기, 카탈로그 문자열 필드, RapidFuzz 유사도, 후보 수·최소 유사도·톤수 차이 한도를 조합한다. 형식과 후보 예산을 검사한 뒤 기존 v11 후보와 합친다. LLM이 만든 코드를 실행하거나 제출 패키지를 바꾸지 않는다.
+- 비교 작업자는 공식 train/catalog와 고정 seed42 그룹·행 분할을 사용한다. 각 분할에서 기준 랭커를 한 번 학습해 고정하고, 같은 검증 행에서 후보 포함률·최종 점수·후보 수·실행 시간을 비교한다. 검증 정답 열은 예측 입력에서 제거한다. 정책으로 랭커를 재학습한 점수가 아니라 **검색 정책 선별**이다.
+- 실제 LLM API 호출과 새 정책의 수치 평가는 아직 하지 않았다. 기존 로컬 분할은 과거 분석에 노출되어 이후 점수도 탐색용이다. 기존 제출 ZIP과 리더보드는 변경하지 않았다.
+
+### v11 자동 후보 검색 실험 (llm, 2026-10-19)
+
+- 실행 ID: `agent_v11_search_20261019_011012_4bed4e`. 고정 `group_split_seed42.json`과 `row_split_seed42.json`; 공식 train/catalog만 사용. LLM이 제안한 검색 정책을 구조·예산 검사 후 실행했다. 분할마다 기준 랭커를 한 번 학습해 고정하고 검색 후보만 바꿔 선별 평가했다. API에는 공식 데이터 행·정답·집계를 보내지 않았다.
+- 가설: Korean arrivals can be missed when romanization differs from the catalog, while translated names may match the catalog's English naming. Unioning a romanized compact-name search with a translation-oriented token-set search provides complementary candidates, with tonnage gating reducing implausible translated-name matches. / Non-Korean records may use abbreviated, reordered, or punctuation-heavy names that are not captured by direct matching. English variants address alias and word-order differences, while skeleton matching supplies a tolerant fallback for formatting and character noise without requiring a single exact spelling.
+- 검증 예측에는 정답 열을 전달하지 않았다. 그룹 분할에서 target 그룹 겹침은 0이며, 행 분할은 학습에서 본 선박과 처음 보는 선박을 별도로 집계한다. 조회표는 각 학습 분할에서만 만들었고 설정마다 4개 행의 부분집합·단독 예측 일치를 확인했다.
+
+| 분할 | 설정 | 전체 | 한글 | 비한글 | 가중 원점수 | 한글 후보 포함 | 비한글 후보 포함 | 본 선박 정답 | 처음 본 선박 정답 | 평균 후보 수 |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| group | v11_baseline | 2341/2344 (0.998720) | 243/243 (1.000000) | 2098/2101 (0.998572) | 0.999572 | 243/243 | 2101/2101 | 0/0 | 2341/2344 | 107.54 |
+| group | korean_dual_name_bridge | 2341/2344 (0.998720) | 243/243 (1.000000) | 2098/2101 (0.998572) | 0.999572 | 243/243 | 2101/2101 | 0/0 | 2341/2344 | 109.34 |
+| group | variant_skeleton_fallback | 2341/2344 (0.998720) | 243/243 (1.000000) | 2098/2101 (0.998572) | 0.999572 | 243/243 | 2101/2101 | 0/0 | 2341/2344 | 112.29 |
+| row | v11_baseline | 2445/2445 (1.000000) | 234/234 (1.000000) | 2211/2211 (1.000000) | 1.000000 | 234/234 | 2211/2211 | 1771/1771 | 674/674 | 105.88 |
+| row | korean_dual_name_bridge | 2445/2445 (1.000000) | 234/234 (1.000000) | 2211/2211 (1.000000) | 1.000000 | 234/234 | 2211/2211 | 1771/1771 | 674/674 | 107.57 |
+| row | variant_skeleton_fallback | 2445/2445 (1.000000) | 234/234 (1.000000) | 2211/2211 (1.000000) | 1.000000 | 234/234 | 2211/2211 | 1771/1771 | 674/674 | 110.83 |
+
+- 재사용 그룹 분할 최고 설정: `v11_baseline`; 행 분할 최고 설정: `v11_baseline`. LLM 제안의 고정 랭커 선별 결과이며 별도 재학습 모델의 점수가 아니다. 기존 target 그룹은 과거 분석에 노출됐으므로 독립 일반화 추정이나 제출 승격 근거가 아니다. 제출 ZIP과 리더보드는 변경하지 않았다.
+- 재현 기록: `experiments/results/agent_v11_search_20261019_011012_4bed4e/summary.json` (입력·코드·분할 해시, 설정별 상세 점수·시간 포함).
+
+### 검색 정책 `english_variant` 불일치 수정과 진단 기반 재학습 루프 구현 (2026-10-19)
+
+- **기존 실행 대조:** `agent_v11_search_20261019_011012_4bed4e`의 `summary.json`을 다시 읽어 위 표와 일치함을 확인했다(그룹 `2341/2344`, 한글 후보 `243/243`, 비한글 후보 `2101/2101`, 가중 원점수 `0.999572`; 두 LLM 정책 모두 정확도·후보 포함률 동일, 평균 후보 수 `107.54→109.34/112.29`, 그룹 예측 시간 `22.4→50.7/131.4초`). LLM 1회 호출(`gpt-5.6-luna`, 입력 501·출력 833토큰)이 있었고, 분할마다 기준 랭커를 고정한 **검색 선별**이며 재학습 평가가 아니었다.
+- **발견한 불일치와 수정:** `variant_skeleton_fallback`의 첫 단계는 `when=non_korean`, `english_variant`, `token_set_ratio`였다. 비한글 질의는 로마자 변형 목록이 비어 있어 `english_variant`가 기본 `compact` 이름으로 되돌아갔고, `token_set_ratio`는 공백 없는 문자열에서 계산됐다(예: `PIONEER OCEAN 2`/`OCEAN PIONEER 2`가 공백 제거 시 61.5, 토큰 비교 시 100). 따라서 그 정책은 이름이 말하는 “영문 변형·토큰 순서” 가설을 시험하지 않았다. `agent/search_policy.py`에서 한글 전용 형식은 비한글 행에서 건너뛰고, `when=non_korean`과 조합하면 거부하며, 공백 토큰 형식 `tokens`를 추가하고 `token_set_ratio`는 `tokens` 질의·필드에서만 허용하도록 고쳤다. 단계별 실제 적용 행 수(`policy_behavior_probe`)도 기록한다. 기존 결과 파일은 보존했으며 수정 정책으로 재선별하지 않았다.
+- **새 루프:** `agent/improvement_graph.py`(LangGraph) → `scripts/v11_improvement_worker.py`(대회용 Python 3.11). 감사 → 분할별 기준 v11 재학습·오류 진단 → LLM 또는 결정적 계획 → 로컬 검사 → 단일 변경 재학습·비교 → 중단 판단 → 기록. 허용 설정은 `agent/retrain_config.py::KNOBS` 9개이고 한 실험은 한 항목만 바꾼다. 어려운 음성 후보 선택은 각 내부 학습 fold의 후보 안에서만 하고, 검증 정답은 예측이 끝난 뒤 평가 단계에서만 붙인다. 진단 선택 규칙(`DIAGNOSTIC_PROTOCOL`: 오답 전부, 정답 중 1·2위 점수 차가 가장 작은 50행, 차이→sample_id 오름차순)과 개선 판정(`DECISION_RULE` v11-improvement-1: 평균 가중 원점수 +0.0005 이상, 2개 이상 분할 개선, 모든 분할에서 한글·비한글·가중 비하락)은 실행 전에 코드로 고정했다.
+- **LLM 경계:** 요청에는 집계 진단·구현 목록·이전 실험 결과·허용 설정·남은 예산만 넣고 `assert_llm_safe`로 ID 형식·한글·비유한 숫자를 막는다. 실제 요청 본문(키 제외)은 `<run>/llm/round_N_request.json`에 남는다. 응답은 엄격 JSON 스키마이며, 범위 밖·기준과 동일·중복·근거 불일치·정답/다른 행/외부 데이터 요구·코드/경로/식별자 문장은 실행하지 않고 사유를 기록한다. 이전 실행 결과는 `experiments/results/agent_improvement_ledger.json`(집계만, Git 제외)으로 다음 계획 입력과 중복 차단에 쓴다.
+- **검증:** `parity --split group_seed42 --rows 1500`에서 기준 설정의 학습 행렬·랭커 파라미터·모델 문자열·검증 예측이 팀 `train.training_matrix`/`fit`/`match_lib.predict`와 모두 같았다(76.5초). 각 진단 실행에서 전체 검증 행의 기준 예측이 팀 `predict`와 같음과 4~5행의 역순 부분집합·단독 예측 일치를 검사한다(전수 독립성 검사 아님). `tests/test_improvement_agent.py` 18개(가드 거부 사유, 단일 변경, 판정 규칙, 진단 분류·식별자 차단, 가짜 작업자로 예산·patience·후보 소진 중단)와 기존 테스트 포함 `unittest discover` 29개가 통과했다. 단일 분할 결정적 스모크 실행(`agent_v11_improve_20261019_014431_25f72b`, 원장·LOG는 임시 폴더로 분리)도 완료했다.
+- 이 작업에서 제출 ZIP 생성·교체와 리더보드 제출은 하지 않았다. `submissions/*.zip` 10개의 수정 시각이 모두 이번 작업 이전이고, 해시가 기록된 5개(`team_v11_merged`, `final_exp022`, `candidate_lambdarank`, `catboost_ngram_negatives`, `catboost_ngram_non_korean`)는 기록과 같은 SHA-256임을 확인했다.
+
+### v11 진단 기반 단일 변경 재학습 루프 (llm, 2026-10-19)
+
+- 실행 ID: `agent_v11_improve_20261019_014952_2aad5f`. 분할: group_seed42, group_seed123, group_seed2026, row_seed42 (모두 과거 검증·오류 분석에 노출된 재사용 분할, 행 중복 있음 — 독립 검증 아님). 공식 train/catalog만 사용.
+- LLM 호출 1회, 학습 실험 3/3회, 중단 사유 `training_experiment_budget_exhausted`.
+- 기준 v11(분할별 재학습, seed 42):
+
+| 분할 | 전체 | 한글 | 비한글 | 가중 원점수 | 후보 포함 | 학습 s | 예측 s |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| group_seed42 | 2341/2344 | 243/243 | 2098/2101 | 0.999572 | 2344/2344 | 103 | 22 |
+| group_seed123 | 2430/2433 | 261/261 | 2169/2172 | 0.999586 | 2433/2433 | 103 | 23 |
+| group_seed2026 | 2400/2402 | 214/215 | 2186/2187 | 0.996607 | 2402/2402 | 104 | 22 |
+| row_seed42 | 2445/2445 | 234/234 | 2211/2211 | 1.000000 | 2445/2445 | 103 | 23 |
+
+- 반복 진단 유형: tonnage_favored_truth_lost, name_similarity_favored_wrong, other_rank_failure, near_miss_runner_up_same_name, near_miss_runner_up_number_mismatch, near_miss_query_tonnage_missing, near_miss_runner_up_closer_tonnage; 분할 특이 유형: query_tonnage_missing, near_miss_override_applied.
+
+| 회차 | 설정 | 결과 | 평균 Δ가중 | 분할별 Δ가중 | 새로 맞힘/틀림 | 동작 검사 | 재학습 |
+|---:|---|---|---:|---|---:|---|---|
+| 1 | `tonnage_missing_encoding__nan` | regressed | -0.000070 | -0.000143, +0.000000, -0.000137, +0.000000 | 0/2 | 통과 | 예 |
+| 1 | `hard_negative_top_n__50` | regressed | -0.002751 | -0.000143, -0.010590, +0.000000, -0.000271 | 4/10 | 통과 | 예 |
+| 1 | `num_leaves__63` | no_effect | +0.000000 | +0.000000, +0.000000, +0.000000, +0.000000 | 0/0 | 통과 | 예 |
+- 남은 예산: 계획 회차 2회 (LLM 호출 포함), 학습 실험 0회.
+- 개선 판정 규칙(사전 고정, v11-improvement-1): 모든 분할에서 한글·비한글 정확도와 가중 원점수가 하락하지 않고, 평균 가중 원점수 변화 >= 0.0005, 개선 분할 >= 2개. 결과는 탐색용이며 독립 일반화 성능이나 제출 승격 근거가 아니다. 제출 ZIP·제출 코드·리더보드는 변경하지 않았다.
+- 재현 기록: `experiments/results/agent_v11_improve_20261019_014952_2aad5f/summary.json` (행 ID 포함 사례 파일은 `local_only/`, Git 제외).
+
+### v11 진단 기반 단일 변경 재학습 루프 (llm, 2026-10-19)
+
+- 실행 ID: `agent_v11_improve_20261019_022638_b5dbbf`. 분할: group_seed42, group_seed123, group_seed2026, row_seed42 (모두 과거 검증·오류 분석에 노출된 재사용 분할, 행 중복 있음 — 독립 검증 아님). 공식 train/catalog만 사용.
+- LLM 호출 1회, 학습 실험 1/1회, 중단 사유 `training_experiment_budget_exhausted`.
+- 기준 v11(분할별 재학습, seed 42):
+
+| 분할 | 전체 | 한글 | 비한글 | 가중 원점수 | 후보 포함 | 학습 s | 예측 s |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| group_seed42 | 2341/2344 | 243/243 | 2098/2101 | 0.999572 | 2344/2344 | 104 | 22 |
+| group_seed123 | 2430/2433 | 261/261 | 2169/2172 | 0.999586 | 2433/2433 | 103 | 23 |
+| group_seed2026 | 2400/2402 | 214/215 | 2186/2187 | 0.996607 | 2402/2402 | 104 | 22 |
+| row_seed42 | 2445/2445 | 234/234 | 2211/2211 | 1.000000 | 2445/2445 | 104 | 23 |
+
+- 반복 진단 유형: tonnage_favored_truth_lost, name_similarity_favored_wrong, other_rank_failure, near_miss_runner_up_same_name, near_miss_runner_up_number_mismatch, near_miss_query_tonnage_missing, near_miss_runner_up_closer_tonnage; 분할 특이 유형: query_tonnage_missing, near_miss_override_applied.
+
+| 회차 | 설정 | 결과 | 평균 Δ가중 | 분할별 Δ가중 | 새로 맞힘/틀림 | 동작 검사 | 재학습 |
+|---:|---|---|---:|---|---:|---|---|
+| 1 | `monotone_constraints__off` | regressed | -0.000035 | -0.000143, +0.000138, +0.000000, -0.000136 | 1/2 | 통과 | 예 |
+- 남은 예산: 계획 회차 0회 (LLM 호출 포함), 학습 실험 0회.
+- 개선 판정 규칙(사전 고정, v11-improvement-1): 모든 분할에서 한글·비한글 정확도와 가중 원점수가 하락하지 않고, 평균 가중 원점수 변화 >= 0.0005, 개선 분할 >= 2개. 결과는 탐색용이며 독립 일반화 성능이나 제출 승격 근거가 아니다. 제출 ZIP·제출 코드·리더보드는 변경하지 않았다.
+- 재현 기록: `experiments/results/agent_v11_improve_20261019_022638_b5dbbf/summary.json` (행 ID 포함 사례 파일은 `local_only/`, Git 제외).
+
+### v11 진단 기반 단일 변경 재학습 루프 (deterministic, 2026-10-19)
+
+- 실행 ID: `agent_v11_improve_20261019_062733_04f948`. 분할: group_seed42, group_seed123, group_seed2026, row_seed42 (모두 과거 검증·오류 분석에 노출된 재사용 분할, 행 중복 있음 — 독립 검증 아님). 공식 train/catalog만 사용.
+- LLM 호출 0회, 학습 실험 1/1회, 중단 사유 `training_experiment_budget_exhausted`.
+- 기준 v11(분할별 재학습, seed 42):
+
+| 분할 | 전체 | 한글 | 비한글 | 가중 원점수 | 후보 포함 | 학습 s | 예측 s |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| group_seed42 | 2341/2344 | 243/243 | 2098/2101 | 0.999572 | 2344/2344 | 106 | 22 |
+| group_seed123 | 2430/2433 | 261/261 | 2169/2172 | 0.999586 | 2433/2433 | 103 | 23 |
+| group_seed2026 | 2400/2402 | 214/215 | 2186/2187 | 0.996607 | 2402/2402 | 104 | 22 |
+| row_seed42 | 2445/2445 | 234/234 | 2211/2211 | 1.000000 | 2445/2445 | 105 | 23 |
+
+- 반복 진단 유형: tonnage_favored_truth_lost, name_similarity_favored_wrong, other_rank_failure, near_miss_runner_up_same_name, near_miss_runner_up_number_mismatch, near_miss_query_tonnage_missing, near_miss_runner_up_closer_tonnage; 분할 특이 유형: query_tonnage_missing, near_miss_override_applied.
+
+| 회차 | 설정 | 결과 | 평균 Δ가중 | 분할별 Δ가중 | 새로 맞힘/틀림 | 동작 검사 | 재학습 |
+|---:|---|---|---:|---|---:|---|---|
+| 1 | `number_features__no_asymmetry` | regressed | -0.000001 | -0.000143, +0.000000, +0.000137, +0.000000 | 1/1 | 통과 | 예 |
+- 남은 예산: 계획 회차 0회 (결정적 계획, LLM 미사용), 학습 실험 0회.
+- 개선 판정 규칙(사전 고정, v11-improvement-1): 모든 분할에서 한글·비한글 정확도와 가중 원점수가 하락하지 않고, 평균 가중 원점수 변화 >= 0.0005, 개선 분할 >= 2개. 결과는 탐색용이며 독립 일반화 성능이나 제출 승격 근거가 아니다. 제출 ZIP·제출 코드·리더보드는 변경하지 않았다.
+- 재현 기록: `experiments/results/agent_v11_improve_20261019_062733_04f948/summary.json` (행 ID 포함 사례 파일은 `local_only/`, Git 제외).
+
+- 추가 해석·확인: 새로 맞힌 1건은 seed2026의 `tonnage_favored_truth_lost`, 새로 틀린 1건은 seed42의 `same_name_collision`이었다. 두 건 모두 비한글이고 다른 두 분할은 예측 변화가 없었다. 평균 Δ가중의 정확한 값은 `-0.0000014037341940775772`이며, 미세한 평균 변화만으로 일반 성능 저하를 주장하지 않고 일관된 개선 근거가 없어 미채택한다. 기존 기준 모델 해시가 네 분할 모두 앞선 실행과 같고, 특징 비활성화·조회표 범위·검증 정답 제거·표본 행 독립성 검사를 통과했다. 보관 ZIP 10개는 실행 중 기록한 스냅샷과 종료 시 SHA-256이 같았다. 확인 결과는 같은 실행 폴더의 `completion_verification.json`, 기준 모델의 두 특징 사용량은 `baseline_number_feature_usage.json`에 있다. 루트 README와 에이전트 README·인계 문서를 실제 결과에 맞췄고, 이번에는 모델 개선 코드를 변경하지 않았다.
+
+### v11 진단 기반 단일 변경 재학습 루프 (deterministic, 2026-10-19)
+
+- 실행 ID: `agent_v11_improve_20261019_072054_425152`. 분할: group_seed42, group_seed123, group_seed2026, row_seed42 (모두 과거 검증·오류 분석에 노출된 재사용 분할, 행 중복 있음 — 독립 검증 아님). 공식 train/catalog만 사용.
+- LLM 호출 0회, 학습 실험 1/1회, 중단 사유 `training_experiment_budget_exhausted`.
+- 기준 v11(분할별 재학습, seed 42):
+
+| 분할 | 전체 | 한글 | 비한글 | 가중 원점수 | 후보 포함 | 학습 s | 예측 s |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| group_seed42 | 2341/2344 | 243/243 | 2098/2101 | 0.999572 | 2344/2344 | 105 | 22 |
+| group_seed123 | 2430/2433 | 261/261 | 2169/2172 | 0.999586 | 2433/2433 | 103 | 23 |
+| group_seed2026 | 2400/2402 | 214/215 | 2186/2187 | 0.996607 | 2402/2402 | 104 | 22 |
+| row_seed42 | 2445/2445 | 234/234 | 2211/2211 | 1.000000 | 2445/2445 | 103 | 23 |
+
+- 반복 진단 유형: tonnage_favored_truth_lost, name_similarity_favored_wrong, other_rank_failure, near_miss_runner_up_same_name, near_miss_runner_up_number_mismatch, near_miss_query_tonnage_missing, near_miss_runner_up_closer_tonnage; 분할 특이 유형: query_tonnage_missing, near_miss_override_applied.
+
+| 회차 | 설정 | 결과 | 평균 Δ가중 | 분할별 Δ가중 | 새로 맞힘/틀림 | 동작 검사 | 재학습 |
+|---:|---|---|---:|---|---:|---|---|
+| 1 | `ranker_family__catboost_v1_cpu` | regressed | -0.000070 | -0.000143, +0.000000, +0.000000, -0.000136 | 1/3 | 통과 | 예 |
+
+- 랭커 교체의 오류 상보성(조회표 후처리 적용 후):
+
+| 분할 | 둘 다 정답 | 기준만 정답 | 대안만 정답 | 둘 다 오답 | 예측 불일치 |
+|---|---:|---:|---:|---:|---:|
+| group_seed42 | 2340 | 1 | 0 | 3 | 1 |
+| group_seed123 | 2429 | 1 | 1 | 2 | 2 |
+| group_seed2026 | 2400 | 0 | 0 | 2 | 0 |
+| row_seed42 | 2444 | 1 | 0 | 0 | 1 |
+
+- 학습 행렬·검증 후보·검증 특징 해시를 기준과 대조했다. CatBoost 중요도(PredictionValuesChange)는 LightGBM gain과 직접 비교하지 않는다. JSON의 oracle 정확도는 정답을 사용하는 진단 상한이며 실제 예측이나 앙상블 성능이 아니다.
+- 남은 예산: 계획 회차 0회 (결정적 계획, LLM 미사용), 학습 실험 0회.
+- 개선 판정 규칙(사전 고정, v11-improvement-1): 모든 분할에서 한글·비한글 정확도와 가중 원점수가 하락하지 않고, 평균 가중 원점수 변화 >= 0.0005, 개선 분할 >= 2개. 결과는 탐색용이며 독립 일반화 성능이나 제출 승격 근거가 아니다. 제출 ZIP·제출 코드·리더보드는 변경하지 않았다.
+- 재현 기록: `experiments/results/agent_v11_improve_20261019_072054_425152/summary.json` (행 ID 포함 사례 파일은 `local_only/`, Git 제외).
+
+- CatBoost 절대 점수 보충(모든 분할은 재사용·과거 노출, 분할 간 중복 있음):
+
+| 분할 | 전체 | 한글 | 비한글 | 가중 원점수 |
+|---|---:|---:|---:|---:|
+| group_seed42 | 2340/2344 | 243/243 | 2097/2101 | 0.999429 |
+| group_seed123 | 2430/2433 | 261/261 | 2169/2172 | 0.999586 |
+| group_seed2026 | 2400/2402 | 214/215 | 2186/2187 | 0.996607 |
+| row_seed42 | 2444/2445 | 234/234 | 2210/2211 | 0.999864 |
+
+- 보충 해석: 새로 맞힘/틀림은 분할별 합계 1/3이며 고유 행은 1/2다. seed123의 `other_rank_failure` 1건을 고쳤지만 `same_name_collision` 오류 2회와 `tonnage_favored_truth_lost` 1회가 새로 생겼다. 분류는 진단용 휴리스틱이며 원인 입증이 아니다. 이번 고정 CatBoost 단독 구성은 미채택하고 기준 v11을 유지한다. 앙상블은 실행하지 않았으며 oracle은 두 모델 top-1 중 고르는 진단 값으로만 해석한다.
+- 동일 입력 확인: 네 분할 모두 학습 행렬(X/y/group)·검증 후보·특징 해시가 기준과 같고, 원본 입력·작업자 코드 해시도 일치했다. 네 기준 모델은 앞선 실행과 해시가 같았다. CatBoost 모델 4개를 다시 로드해 600개 트리·특징 이름·CBM 해시를 확인했다. 표본 행 독립성 검사는 통과했지만 전수 검사는 아니다.
+- 비용·구현 확인: 특징 생성 포함 학습 합계는 LightGBM 415.6초·CatBoost 1396.9초, 검증 예측 구간 합계는 89.8초·88.1초였다(모델 로딩·조회표 준비 제외, 로컬 참고값). 개발 환경 34개 검사 중 33개 통과·native 검사 1개는 건너뛰고, 대회용 환경에서 관련 4개 검사를 실행해 실제 CatBoost 학습·저장·재로딩이 통과했다. 기존 LightGBM 설정의 fingerprint는 보존하고 새 랭커 구성만 별도로 식별한다. 모델별 중요도 정의가 달라 직접 차감하지 않았다.
+- 보존: 소스 스냅샷 9개와 보관 ZIP 10개 해시가 종료 시 같았다. 상세 확인은 실행 폴더의 `pre_run_intent.json`, `implementation_checks.json`, `completion_verification.json`에 있다. README와 인계 문서를 실제 결과에 맞췄고, 제출 코드·ZIP·리더보드는 변경하지 않았다.
