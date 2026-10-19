@@ -20,7 +20,7 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from agent.team_v11.source import train as trainer  # noqa: E402
-from agent.search_policy import augment_candidates_and_features, validate_proposals  # noqa: E402
+from agent.search_policy import augment_candidates_and_features, behavior_probe, validate_proposals  # noqa: E402
 from src.metric import calculate_score, is_korean  # noqa: E402
 
 
@@ -300,6 +300,9 @@ def _screen_result(split_name: str, setting_name: str, policy: dict | None,
                            "row_independence_passed": True},
         "input_hashes": audit["hashes"],
         "policy_file_sha256": policy_sha256,
+        # Which stages actually ran and produced a query different from the base name.
+        "policy_behavior_probe": None if policy is None else behavior_probe(
+            [trainer.ml.prepare_query(row, resources) for row in inputs.to_dict("records")], policy),
     }
 
 
