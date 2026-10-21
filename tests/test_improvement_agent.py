@@ -14,7 +14,8 @@ import numpy as np
 from agent import improvement_graph as graph_module
 from agent.error_diagnostics import assert_llm_safe, cross_split, diagnose_rows, summarize_split
 from agent.improvement_planner import build_payload, guard, propose_deterministic
-from agent.retrain_config import (KNOBS, baseline_config, canonical_name, classify_outcome,
+from agent.retrain_config import (KNOBS, allowed_changes_for_llm, baseline_config,
+                                  canonical_name, classify_outcome,
                                   config_for, fingerprint, validate_config)
 from agent.search_policy import _query_value, behavior_probe, validate_proposals
 from agent.team_v11.source import match_lib as ml
@@ -87,6 +88,10 @@ class RetrainConfigTest(unittest.TestCase):
         self.assertEqual(classify_outcome([split(-0.001)] * 2, True)["label"], "regressed")
         self.assertEqual(classify_outcome([split(0.01)] * 2, False)["label"], "invalid_behavior_mismatch")
 
+    def test_mlp_profiles_are_not_llm_improvement_options(self):
+        ranker = next(item for item in allowed_changes_for_llm() if item["knob"] == "ranker_family")
+        self.assertEqual(ranker["allowed_values"], ["catboost_v1_cpu"])
+
 
 def fake_cross(**counts):
     flags = {k: {"total": v, "splits_present": 2 if v else 0, "per_split": [v], "pattern":
@@ -156,6 +161,23 @@ class GuardTest(unittest.TestCase):
         self.assertNotIn(("tonnage_missing_encoding", "nan"), names)
         accepted, _ = guard(out["proposals"], self.cross, tried, 3)
         self.assertEqual(len(accepted), len(out["proposals"]))
+
+    def test_mlp_profiles_are_rejected_by_improvement_planner(self):
+        cross = fake_cross(tonnage_favored_truth_lost=3)
+        tried = {fingerprint(config_for("ranker_family", "catboost_v1_cpu"))}
+        planned = propose_deterministic(cross, tried, 3)
+        self.assertFalse(any(item["value"].startswith("mlp_") for item in planned["proposals"]))
+        for value in ("mlp_listwise_v1_cpu", "mlp_listwise_v1_cuda"):
+            item = proposal(knob="ranker_family", value=value, change_kind="training",
+                            evidence_error_types=["tonnage_favored_truth_lost"])
+            accepted, rejected = guard([item], cross, set(), 3)
+            self.assertEqual(accepted, [])
+            self.assertIn("mlp_ranker_reserved_for_oof", rejected[0]["reasons"])
+
+    def test_fixed_mlp_graph_is_rejected_before_a_run(self):
+        for value in ("mlp_listwise_v1_cpu", "mlp_listwise_v1_cuda"):
+            with self.assertRaisesRegex(ValueError, "고정 OOF"):
+                graph_module.build_improvement_graph("deterministic", ("ranker_family", value))
 
 
 def synthetic_details():

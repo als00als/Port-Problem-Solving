@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 from datetime import datetime
 import hashlib
 import json
@@ -13,17 +14,17 @@ from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from agent.mlp_oof_protocol import (PROTOCOL_VERSION, summarize_paired_oof,
+from agent.mlp_oof_protocol import (CUDA_PROTOCOL_VERSION, PROTOCOL_VERSION, summarize_paired_oof,
                                     validate_group_oof_split)  # noqa: E402
 from agent.retrain_config import canonical_name  # noqa: E402
+from agent.retrain_runtime import MLP_CUDA_PROFILE, MLP_PROFILE  # noqa: E402
 from src.metric import is_korean  # noqa: E402
 
 PYTHON = ROOT / ".venv_competition_py311" / "Scripts" / "python.exe"
 WORKER = ROOT / "scripts" / "v11_improvement_worker.py"
-SPLIT_FILE = ROOT / "experiments" / "splits" / "agent_v11_mlp_listwise_group5_seed20261019.json"
-SPLITS = tuple(f"mlp_oof_fold{i}" for i in range(5))
-KNOB, VALUE = "ranker_family", "mlp_listwise_v1_cpu"
-SETTING = canonical_name(KNOB, VALUE)
+CPU_SPLIT_FILE = ROOT / "experiments" / "splits" / "agent_v11_mlp_listwise_group5_seed20261019.json"
+CUDA_SPLIT_FILE = ROOT / "experiments" / "splits" / "agent_v11_mlp_listwise_cuda_group5_seed20261019.json"
+KNOB = "ranker_family"
 CODE_FILES = (
     "agent/mlp_oof_protocol.py", "agent/retrain_config.py", "agent/retrain_runtime.py",
     "agent/error_diagnostics.py", "agent/team_v11/source/match_lib.py",
@@ -73,6 +74,37 @@ def worker(args: list[str], output: Path) -> dict:
     return json.loads(output.read_text(encoding="utf-8"))
 
 
+def probe_worker_cuda() -> dict:
+    """Check CUDA in the exact Python environment that will train the MLP."""
+    env = dict(os.environ, PYTHONIOENCODING="utf-8", PYTHONUTF8="1")
+    env.pop("OPENAI_API_KEY", None)
+    probe_code = ("import json, torch; ok=bool(torch.cuda.is_available()); "
+                  "print(json.dumps({'cuda_available': ok, 'torch_version': torch.__version__, "
+                  "'cuda_runtime': torch.version.cuda, 'device_count': torch.cuda.device_count() if ok else 0})); "
+                  "raise SystemExit(0 if ok else 2)")
+    result = subprocess.run([str(PYTHON), "-c", probe_code], cwd=ROOT, env=env,
+                            capture_output=True, text=True, encoding="utf-8", check=False)
+    if result.returncode:
+        detail = result.stdout.strip() or result.stderr.strip() or f"exit {result.returncode}"
+        raise RuntimeError("학습 작업자 Python에서 CUDA를 사용할 수 없습니다: " + detail)
+    probe = json.loads(result.stdout)
+    if not probe.get("cuda_available"):
+        raise RuntimeError("학습 작업자 Python의 CUDA 점검이 실패했습니다")
+    return probe
+
+
+PRIMARY_CPU_ROLES = ("primary_cpu_oof", "primary_cpu_oof_refrozen_after_exposure")
+
+
+def check_analysis_role(role: str, *, gpu: bool) -> str:
+    """Each runner only accepts the protocol role it is allowed to report."""
+    if gpu and role != "secondary_device_check":
+        raise ValueError("CUDA OOF는 보조 장치 확인 프로토콜이어야 합니다")
+    if not gpu and role not in PRIMARY_CPU_ROLES:
+        raise ValueError("CPU OOF는 주 분석 프로토콜이어야 합니다")
+    return role
+
+
 def load_cases(run_dir: Path, relative_path: str) -> list[dict]:
     path = ROOT / relative_path
     if not path.is_relative_to(run_dir):
@@ -80,21 +112,30 @@ def load_cases(run_dir: Path, relative_path: str) -> list[dict]:
     return json.loads(path.read_text(encoding="utf-8"))["cases"]
 
 
-def run() -> Path:
+def run(*, gpu: bool = False) -> Path:
+    split_file = CUDA_SPLIT_FILE if gpu else CPU_SPLIT_FILE
+    protocol_version = CUDA_PROTOCOL_VERSION if gpu else PROTOCOL_VERSION
+    splits = tuple(f"{'mlp_cuda_oof_fold' if gpu else 'mlp_oof_fold'}{i}" for i in range(5))
+    value = "mlp_listwise_v1_cuda" if gpu else "mlp_listwise_v1_cpu"
+    setting = canonical_name(KNOB, value)
+    expected_profile = MLP_CUDA_PROFILE if gpu else MLP_PROFILE
     if not PYTHON.is_file():
         raise FileNotFoundError(f"대회 Python 환경을 찾을 수 없습니다: {PYTHON}")
-    if not SPLIT_FILE.is_file():
-        raise FileNotFoundError("먼저 scripts/freeze_v11_mlp_oof_split.py로 OOF 분할·판정 기준을 고정하세요")
-    split = json.loads(SPLIT_FILE.read_text(encoding="utf-8"))
-    if split.get("protocol_version") != PROTOCOL_VERSION:
+    cuda_probe = probe_worker_cuda() if gpu else None
+    if not split_file.is_file():
+        raise FileNotFoundError("먼저 scripts/freeze_v11_mlp_oof_split.py로 해당 OOF 분할·판정 기준을 고정하세요")
+    split = json.loads(split_file.read_text(encoding="utf-8"))
+    if (split.get("protocol_version") != protocol_version
+            or split.get("ranker_profile") != json.loads(json.dumps(expected_profile))):
         raise ValueError("고정 OOF protocol 버전이 다릅니다")
+    role = check_analysis_role(split.get("analysis_role", "primary_cpu_oof"), gpu=gpu)
     import pandas as pd
     train_path = ROOT / "data" / "open" / "train.csv"
     train = pd.read_csv(train_path, encoding="utf-8-sig")
     validate_group_oof_split(train.assign(is_korean=train["vessel_name"].map(is_korean)), split)
     source_hashes = {path: sha256_file(ROOT / path) for path in CODE_FILES}
     timestamp = datetime.now().astimezone().strftime("%Y%m%d_%H%M%S")
-    run_dir = ROOT / "experiments" / "results" / f"agent_v11_mlp_oof_{timestamp}_{uuid4().hex[:6]}"
+    run_dir = ROOT / "experiments" / "results" / f"agent_v11_mlp_{'cuda_' if gpu else ''}oof_{timestamp}_{uuid4().hex[:6]}"
     run_dir.mkdir(parents=True, exist_ok=False)
     zips_before = zip_snapshot()
     train_hash = sha256_file(train_path)
@@ -102,11 +143,17 @@ def run() -> Path:
     if train_hash != split["train_sha256"] or catalog_hash != split["catalog_sha256"]:
         raise ValueError("고정 protocol의 공식 데이터 해시와 현재 입력이 다릅니다")
     intent = {
-        "run_id": run_dir.name, "protocol_version": PROTOCOL_VERSION,
-        "split_file": SPLIT_FILE.relative_to(ROOT).as_posix(), "split_sha256": sha256_file(SPLIT_FILE),
+        "run_id": run_dir.name, "protocol_version": protocol_version,
+        "split_file": split_file.relative_to(ROOT).as_posix(), "split_sha256": sha256_file(split_file),
         "source_sha256": source_hashes,
         "input_sha256": {"train.csv": train_hash, "vessel_catalog.csv": catalog_hash},
-        "ranker": {"knob": KNOB, "value": VALUE, "profile": split["ranker_profile"]},
+        "ranker": {"knob": KNOB, "value": value, "profile": split["ranker_profile"]},
+        "worker_cuda_probe": cuda_probe,
+        "analysis_role": role,
+        "prior_partial_results_reported_before_freeze":
+            bool(split.get("prior_partial_results_reported_before_freeze", gpu)),
+        "refrozen_after_partial_results_seen": bool(split.get("refrozen_after_partial_results_seen", False)),
+        "split_environment": split.get("environment"),
         "unchanged_conditions": ["official candidate generation", "ordered candidates", "v11 features",
                                  "lookup overrides", "outer folds", "validation rows"],
         "decision_gates": split["acceptance_gates"],
@@ -117,14 +164,14 @@ def run() -> Path:
     write_json(run_dir / "pre_run_intent.json", intent)
     per_fold = []
     baseline_cases_all, mlp_cases_all = [], []
-    for split_name in SPLITS:
+    for split_name in splits:
         fold_id = int(split_name[-1])
         print(f"{split_name}: 분할 감사·기준 v11 재학습·MLP 비교", flush=True)
         audit = worker(["audit", "--split", split_name], run_dir / f"audit_{split_name}.json")
         baseline = worker(["diagnose", "--split", split_name, "--run-dir", str(run_dir)],
                           diagnosis_output_path(run_dir, split_name))
         alternative = worker(["retrain", "--split", split_name, "--run-dir", str(run_dir),
-                              "--knob", KNOB, "--value", VALUE],
+                              "--knob", KNOB, "--value", value],
                              run_dir / f"mlp_{split_name}.json")
         base_cases = load_cases(run_dir, baseline["local_case_file"])
         mlp_cases = load_cases(run_dir, alternative["local_case_file"])
@@ -174,10 +221,12 @@ def run() -> Path:
                 "accuracy": correct / rows if rows else None,
             }
     outcome = {**paired["decision"], "candidate_recall_equal": candidate_recall_equal,
-               "accepted": bool(paired["decision"]["mlp_improvement_signal"] and candidate_recall_equal)}
+               "accepted": bool(not gpu and paired["decision"]["mlp_improvement_signal"]
+                                and candidate_recall_equal),
+               "selection_eligible": not gpu}
     summary = {
-        "run_id": run_dir.name, "protocol_version": PROTOCOL_VERSION,
-        "setting": SETTING, "knob": KNOB, "value": VALUE,
+        "run_id": run_dir.name, "protocol_version": protocol_version,
+        "setting": setting, "knob": KNOB, "value": value,
         "official_rows": len(train), "folds": per_fold,
         "oof_row_coverage": {"rows": len(oof_ids), "unique_rows": len(set(oof_ids)),
                              "each_official_row_once": True},
@@ -193,6 +242,10 @@ def run() -> Path:
                                               for f in per_fold),
         },
         "independence_note": split["independence_note"],
+        "analysis_role": role,
+        "prior_partial_results_reported_before_freeze":
+            bool(split.get("prior_partial_results_reported_before_freeze", gpu)),
+        "refrozen_after_partial_results_seen": bool(split.get("refrozen_after_partial_results_seen", False)),
         "leaderboard_submission": False,
     }
     write_json(run_dir / "summary.json", summary)
@@ -230,4 +283,7 @@ def run() -> Path:
 
 
 if __name__ == "__main__":
-    print(run())
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--gpu", action="store_true", help="별도 CUDA MLP OOF 프로토콜로 실행")
+    args = parser.parse_args()
+    print(run(gpu=args.gpu))

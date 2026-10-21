@@ -1,7 +1,13 @@
 # 테스트 노트북 파일은 올리지 않음
 notebooks/
 submissions/
-experiments/splits/
+# 고정 분할은 sample_id 목록만 담은 재현용 4개만 추적한다.
+# MLP 5-fold 분할(CPU·CUDA)은 fold별 target vessel_id 목록을 담아 제외하고 별도로 전달한다.
+experiments/splits/*
+!experiments/splits/row_split_seed42.json
+!experiments/splits/group_split_seed42.json
+!experiments/splits/group_split_seed123.json
+!experiments/splits/group_split_seed2026.json
 experiments/results/
 
 # Byte-compiled / optimized / DLL files

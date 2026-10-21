@@ -15,6 +15,14 @@ from pathlib import Path
 import tempfile
 from typing import Any, Iterator
 
+# Import torch before the v11 stack: on this Windows environment loading torch after
+# numpy/pandas/rapidfuzz/unidecode fails with "WinError 1114 ... c10.dll". Importing it
+# first is harmless and keeps the lazy ``import torch`` inside the MLP code working.
+try:  # pragma: no cover - environment-dependent import ordering
+    import torch as _torch_preload  # noqa: F401
+except Exception:  # torch is optional for every non-MLP configuration
+    _torch_preload = None
+
 import lightgbm as lgb
 import numpy as np
 import pandas as pd
@@ -39,6 +47,17 @@ MLP_PROFILE = {"hidden_sizes": (64, 32), "activation": "ReLU", "dropout": 0.1,
                "epochs": 20, "batch_queries": 128, "input_clip": 10.0,
                "seed": 42, "thread_count": 8, "device": "cpu",
                "loss": "query_listwise_softmax"}
+MLP_CUDA_PROFILE = {**MLP_PROFILE, "device": "cuda"}
+
+
+def mlp_device(profile: dict[str, Any]):
+    import torch
+    device = profile["device"]
+    if device == "cuda" and not torch.cuda.is_available():
+        raise RuntimeError("CUDA MLP 실행에는 CUDA 지원 PyTorch와 사용 가능한 GPU가 필요합니다")
+    if device not in ("cpu", "cuda"):
+        raise ValueError(f"지원하지 않는 MLP device: {device}")
+    return torch.device(device)
 
 
 def _mlp_network(input_dim: int):
@@ -72,9 +91,11 @@ def listwise_group_loss(scores, labels, groups: np.ndarray):
 
 
 class MLPRanker:
-    """Fixed-profile CPU listwise MLP whose candidate scores are row-independent."""
+    """Fixed-profile CPU/CUDA listwise MLP with row-independent candidate scores."""
 
-    def __init__(self) -> None:
+    def __init__(self, profile: dict[str, Any] | None = None) -> None:
+        self.profile = dict(MLP_PROFILE if profile is None else profile)
+        self.device = None
         self.network = None
         self.input_mean_ = None
         self.input_scale_ = None
@@ -90,13 +111,11 @@ class MLPRanker:
         if not np.isfinite(values).all():
             raise ValueError("MLP 입력 특징에 비유한 값이 있습니다")
         normalized = (values - self.input_mean_) / self.input_scale_
-        return np.clip(normalized, -MLP_PROFILE["input_clip"], MLP_PROFILE["input_clip"]).astype(
+        return np.clip(normalized, -self.profile["input_clip"], self.profile["input_clip"]).astype(
             np.float32, copy=False)
 
     def fit(self, features: np.ndarray, labels: np.ndarray, groups: np.ndarray):
         import torch
-        import torch.nn as nn
-
         x = np.asarray(features, dtype=np.float32)
         y = np.asarray(labels, dtype=np.float32)
         sizes = np.asarray(groups, dtype=np.int64)
@@ -114,34 +133,42 @@ class MLPRanker:
         scale = x.std(axis=0, dtype=np.float64).astype(np.float32)
         self.input_scale_ = np.where(scale > 1e-6, scale, 1.0).astype(np.float32)
         normalized = self._normalize(x)
-        torch.set_num_threads(MLP_PROFILE["thread_count"])
-        with torch.random.fork_rng(devices=[]):
-            torch.manual_seed(MLP_PROFILE["seed"])
-            self.network = _mlp_network(self.input_dim_)
+        self.device = mlp_device(self.profile)
+        if self.device.type == "cpu":
+            torch.set_num_threads(self.profile["thread_count"])
+        fork_devices = [torch.cuda.current_device()] if self.device.type == "cuda" else []
+        with torch.random.fork_rng(devices=fork_devices):
+            torch.manual_seed(self.profile["seed"])
+            self.network = _mlp_network(self.input_dim_).to(self.device)
             optimizer = torch.optim.AdamW(self.network.parameters(),
-                                          lr=MLP_PROFILE["learning_rate"],
-                                          weight_decay=MLP_PROFILE["weight_decay"])
-            xt = torch.from_numpy(normalized)
-            yt = torch.from_numpy(y)
-            rng = np.random.default_rng(MLP_PROFILE["seed"])
+                                          lr=self.profile["learning_rate"],
+                                          weight_decay=self.profile["weight_decay"])
+            xt = torch.from_numpy(normalized).to(self.device)
+            yt = torch.from_numpy(y).to(self.device)
+            rng = np.random.default_rng(self.profile["seed"])
             batches = 0
             self.network.train()
-            for _ in range(MLP_PROFILE["epochs"]):
+            for _ in range(self.profile["epochs"]):
                 query_order = rng.permutation(len(sizes))
-                for start in range(0, len(query_order), MLP_PROFILE["batch_queries"]):
-                    query_ids = query_order[start:start + MLP_PROFILE["batch_queries"]]
+                for start in range(0, len(query_order), self.profile["batch_queries"]):
+                    query_ids = query_order[start:start + self.profile["batch_queries"]]
                     row_ids = np.concatenate([np.arange(offsets[q], offsets[q + 1]) for q in query_ids])
                     batch_sizes = sizes[query_ids]
                     optimizer.zero_grad(set_to_none=True)
-                    scores = self.network(xt[row_ids]).reshape(-1)
-                    loss = listwise_group_loss(scores, yt[row_ids], batch_sizes)
+                    indices = torch.as_tensor(row_ids, device=self.device)
+                    scores = self.network(xt[indices]).reshape(-1)
+                    loss = listwise_group_loss(scores, yt[indices], batch_sizes)
                     loss.backward()
                     optimizer.step()
                     batches += 1
             self.network.eval()
-        self.training_stats_ = {"ranker_family": "mlp_listwise_v1_cpu", "queries": int(len(sizes)),
+            if self.device.type == "cuda":
+                torch.cuda.synchronize(self.device)
+        self.training_stats_ = {"ranker_family": ("mlp_listwise_v1_cuda" if self.device.type == "cuda"
+                                                    else "mlp_listwise_v1_cpu"),
+                                "device": self.device.type, "queries": int(len(sizes)),
                                 "candidate_rows": int(len(y)), "optimizer_batches": batches,
-                                "epochs": MLP_PROFILE["epochs"], "normalizer_fit_rows": int(len(x)),
+                                "epochs": self.profile["epochs"], "normalizer_fit_rows": int(len(x)),
                                 "zero_variance_features": int((scale <= 1e-6).sum())}
         return self
 
@@ -152,7 +179,8 @@ class MLPRanker:
         normalized = self._normalize(features)
         self.network.eval()
         with torch.no_grad():
-            parts = [self.network(torch.from_numpy(normalized[start:start + 32768])).reshape(-1).numpy()
+            parts = [self.network(torch.from_numpy(normalized[start:start + 32768]).to(self.device))
+                     .reshape(-1).cpu().numpy()
                      for start in range(0, len(normalized), 32768)]
         return np.concatenate(parts) if parts else np.empty(0, dtype=np.float32)
 
@@ -160,27 +188,30 @@ class MLPRanker:
         import torch
         if self.network is None:
             raise ValueError("학습되지 않은 MLP는 저장할 수 없습니다")
-        torch.save({"profile": MLP_PROFILE, "input_dim": self.input_dim_,
+        torch.save({"profile": self.profile, "input_dim": self.input_dim_,
                     "input_mean": torch.from_numpy(self.input_mean_.copy()),
                     "input_scale": torch.from_numpy(self.input_scale_.copy()),
-                    "feature_names": list(FEATURES), "state_dict": self.network.state_dict(),
+                    "feature_names": list(FEATURES),
+                    "state_dict": {key: value.cpu() for key, value in self.network.state_dict().items()},
                     "training_stats": self.training_stats_}, path)
 
     @classmethod
     def load_model(cls, path: str | Path):
         import torch
         payload = torch.load(path, map_location="cpu", weights_only=True)
-        if payload["profile"] != MLP_PROFILE:
+        if payload["profile"] not in (MLP_PROFILE, MLP_CUDA_PROFILE):
             raise ValueError("저장된 MLP 프로필이 현재 고정 프로필과 다릅니다")
         if payload["feature_names"] != list(FEATURES):
             raise ValueError("저장된 MLP 특징 순서가 현재 v11 특징과 다릅니다")
-        model = cls()
+        model = cls(payload["profile"])
+        model.device = mlp_device(model.profile)
         model.input_dim_ = int(payload["input_dim"])
         model.input_mean_ = payload["input_mean"].numpy().astype(np.float32, copy=False)
         model.input_scale_ = payload["input_scale"].numpy().astype(np.float32, copy=False)
         model.training_stats_ = payload["training_stats"]
         model.network = _mlp_network(model.input_dim_)
         model.network.load_state_dict(payload["state_dict"])
+        model.network.to(model.device)
         model.network.eval()
         return model
 
@@ -194,7 +225,7 @@ class MLPRanker:
 
     def model_sha256(self) -> str:
         digest = hashlib.sha256()
-        digest.update(str(sorted(MLP_PROFILE.items())).encode("utf-8"))
+        digest.update(str(sorted(self.profile.items())).encode("utf-8"))
         digest.update("\n".join(FEATURES).encode("utf-8"))
         digest.update(array_digest(self.input_mean_, self.input_scale_).encode("ascii"))
         for name, tensor in sorted(self.network.state_dict().items()):
@@ -263,18 +294,29 @@ def _select_negatives(feats: np.ndarray, labels: np.ndarray, top_n: int) -> np.n
 
 
 def training_matrix(train: pd.DataFrame, catalog: pd.DataFrame, index, config: dict[str, str],
-                    inner: int = 5):
-    """Same inner GroupKFold construction as train.training_matrix, plus training knobs."""
+                    inner: int = 5, augment=None):
+    """Same inner GroupKFold construction as train.training_matrix, plus training knobs.
+
+    ``augment`` is an optional callable taking that inner split's prep rows and returning
+    ``(extra_rows, audit)``; the extra rows are appended as additional training queries.
+    ``augment=None`` (the default) leaves every step and the matrix hash unchanged.
+    Resources always come from ``fit_idx`` clean rows only.
+    """
     xs, ys, groups = [], [], []
     hits = 0
     stats = {"queries_total": 0, "queries_dropped_missing_truth": 0, "negatives_kept": 0,
              "negatives_before_selection": 0, "max_negatives_per_query": 0, "nan_gap_cells": 0,
              "zeroed_columns": list(zeroed_columns(config))}
+    augment_audits: list[dict[str, Any]] = []
     top_n = None if config["hard_negative_top_n"] == "all" else int(config["hard_negative_top_n"])
     splitter = GroupKFold(n_splits=inner)
     for fit_idx, prep_idx in splitter.split(train, groups=train["target_vessel_id"]):
         res = trainer.resources(train.iloc[fit_idx], catalog)
         rows = train.iloc[prep_idx].to_dict("records")
+        if augment is not None:
+            extra, audit = augment(rows)
+            augment_audits.append(audit)
+            rows = rows + list(extra)
         queries = [ml.prepare_query(r, res) for r in rows]
         truth = [index.id_to_index[r["target_vessel_id"]] for r in rows]
         hit_flags: list[bool] = []
@@ -303,6 +345,8 @@ def training_matrix(train: pd.DataFrame, catalog: pd.DataFrame, index, config: d
             groups.append(len(labels))
     stats["queries_used"] = len(groups)
     stats["mean_negatives_per_query"] = stats["negatives_kept"] / max(len(groups), 1)
+    if augment is not None:
+        stats["augmentation"] = augment_audits
     return np.vstack(xs), np.concatenate(ys), np.asarray(groups), hits / len(train), stats
 
 
@@ -313,10 +357,11 @@ def ranker_params(config: dict[str, str]) -> dict[str, Any]:
     return params
 
 
-def fit(train: pd.DataFrame, catalog: pd.DataFrame, index, config: dict[str, str]):
+def fit(train: pd.DataFrame, catalog: pd.DataFrame, index, config: dict[str, str], augment=None):
     validate_config(config)
     with v11_globals(config):
-        x, y, groups, recall, stats = training_matrix(train, catalog, index, config)
+        x, y, groups, recall, stats = training_matrix(train, catalog, index, config,
+                                                      augment=augment)
         if config["ranker_family"] == "catboost_v1_cpu":
             from catboost import CatBoostRanker, Pool
             params = dict(CATBOOST_PROFILE)
@@ -324,9 +369,9 @@ def fit(train: pd.DataFrame, catalog: pd.DataFrame, index, config: dict[str, str
             pool = Pool(x, label=y, group_id=np.repeat(np.arange(len(groups)), groups),
                         feature_names=list(FEATURES))
             model.fit(pool)
-        elif config["ranker_family"] == "mlp_listwise_v1_cpu":
-            model = MLPRanker().fit(x, y, groups)
-            params = dict(MLP_PROFILE)
+        elif config["ranker_family"] in ("mlp_listwise_v1_cpu", "mlp_listwise_v1_cuda"):
+            params = dict(MLP_CUDA_PROFILE if config["ranker_family"].endswith("_cuda") else MLP_PROFILE)
+            model = MLPRanker(params).fit(x, y, groups)
         else:
             params = ranker_params(config)
             model = lgb.LGBMRanker(**params)
@@ -447,14 +492,21 @@ def behavior_check(knob: str | None, value: str | None, baseline_stats: dict, st
                    "all 600 trees fitted without early stopping")
             expect(model.feature_names_ == list(FEATURES), "same ordered v11 feature names")
             expect(not stats["monotone_constraints_applied"], "CatBoost profile is unconstrained")
-        elif value == "mlp_ranknet_v1_cpu":
+        elif value in ("mlp_listwise_v1_cpu", "mlp_listwise_v1_cuda"):
+            expected_profile = MLP_CUDA_PROFILE if value.endswith("_cuda") else MLP_PROFILE
+            expected_device = expected_profile["device"]
             expect(isinstance(model, MLPRanker), "MLPRanker actually fitted")
-            expect(stats.get("ranker_params") == MLP_PROFILE, "fixed CPU MLP profile matches")
+            expect(stats.get("ranker_params") == expected_profile, "fixed MLP profile matches")
             expect(model.network is not None and model.network.training is False,
                    "MLP is fitted and in evaluation mode")
             expect(model.training_stats_.get("normalizer_fit_rows") == stats.get("training_matrix_rows"),
                    "normalizer was fit only on ranker training rows")
             expect(model.input_dim_ == len(FEATURES), "same ordered v11 feature width")
+            expect(model.device is not None and model.device.type == expected_device
+                   and next(model.network.parameters()).device.type == expected_device,
+                   f"MLP model actually runs on {expected_device}")
+        else:
+            expect(False, f"no behavior check defined for ranker_family={value}")
     elif knob == "hard_negative_top_n":
         n = int(value)
         expect(stats["max_negatives_per_query"] <= n, f"max negatives per query <= {n}")

@@ -21,9 +21,10 @@ PROTOCOL_VERSION = "v11-improvement-1"
 KNOBS: dict[str, dict[str, Any]] = {
     "ranker_family": {
         "kind": "training", "baseline": "lightgbm_v11",
-        "values": ["lightgbm_v11", "catboost_v1_cpu", "mlp_listwise_v1_cpu"],
-        "description": "Replace the v11 LightGBM profile with one fixed CPU CatBoost or small "
-                       "PyTorch MLP profile. Keep the same candidate matrix, inner-fold resources, "
+        "values": ["lightgbm_v11", "catboost_v1_cpu", "mlp_listwise_v1_cpu",
+                   "mlp_listwise_v1_cuda"],
+        "description": "Replace the v11 LightGBM profile with fixed CPU CatBoost or small "
+                       "CPU/CUDA PyTorch MLP profiles. Keep the same candidate matrix, inner-fold resources, "
                        "features and lookup overrides; no model tuning.",
         "addresses": ["tonnage_favored_truth_lost", "name_similarity_favored_wrong",
                       "other_rank_failure", "same_name_collision"],
@@ -114,6 +115,7 @@ KNOBS: dict[str, dict[str, Any]] = {
         "retrain": False,
     },
 }
+OOF_ONLY_RANKERS = frozenset(("mlp_listwise_v1_cpu", "mlp_listwise_v1_cuda"))
 
 ERROR_TYPES = (
     "override_introduced_error", "override_wrong_and_model_wrong", "candidate_missing",
@@ -201,7 +203,8 @@ def validate_config(config: dict[str, str]) -> list[str]:
 
 def allowed_changes_for_llm() -> list[dict[str, Any]]:
     return [{"knob": name, "kind": spec["kind"], "baseline": spec["baseline"],
-             "allowed_values": [v for v in spec["values"] if v != spec["baseline"]],
+             "allowed_values": [v for v in spec["values"]
+                                if v != spec["baseline"] and v not in OOF_ONLY_RANKERS],
              "description": spec["description"], "addresses_evidence_types": spec["addresses"],
              "retrains_ranker": spec["retrain"]}
             for name, spec in KNOBS.items()]

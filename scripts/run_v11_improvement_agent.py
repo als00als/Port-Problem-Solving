@@ -10,7 +10,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from agent.improvement_graph import DEFAULT_SPLITS, Budget, run_improvement  # noqa: E402
-from agent.retrain_config import KNOBS, config_for, validate_config  # noqa: E402
+from agent.retrain_config import KNOBS, OOF_ONLY_RANKERS, config_for, validate_config  # noqa: E402
 
 
 if __name__ == "__main__":
@@ -34,6 +34,8 @@ if __name__ == "__main__":
         fixed_change = (args.knob, args.value)
         if len(validate_config(config_for(*fixed_change))) != 1:
             parser.error("기준값과 다른 설정 하나를 지정하세요")
+        if args.value in OOF_ONLY_RANKERS:
+            parser.error("MLP 랭커는 scripts/run_v11_mlp_oof_experiment.py에서 비교하세요")
     budget = (Budget(1, 1, 1, 1) if fixed_change else
               Budget(args.max_llm_calls, args.max_training_experiments, args.max_proposals, args.patience))
     print(run_improvement(args.planner, budget, tuple(args.splits), fixed_change))

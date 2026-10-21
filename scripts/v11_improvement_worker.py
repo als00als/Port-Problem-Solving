@@ -20,6 +20,13 @@ from pathlib import Path
 import sys
 import time
 
+# Import torch before numpy/pandas: loading it afterwards fails on this Windows
+# environment with "WinError 1114 ... c10.dll". Non-MLP settings run without torch.
+try:  # pragma: no cover - environment-dependent import ordering
+    import torch as _torch_preload  # noqa: F401
+except Exception:
+    _torch_preload = None
+
 import numpy as np
 import pandas as pd
 
@@ -28,7 +35,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from agent import retrain_runtime as runtime  # noqa: E402
 from agent.error_diagnostics import DIAGNOSTIC_PROTOCOL, diagnose_rows, summarize_split, paired_outcomes  # noqa: E402
-from agent.mlp_oof_protocol import PROTOCOL_VERSION as MLP_OOF_PROTOCOL, normalized_name_key  # noqa: E402
+from agent.mlp_oof_protocol import (CUDA_PROTOCOL_VERSION, PROTOCOL_VERSION as MLP_OOF_PROTOCOL,
+                                    normalized_name_key)  # noqa: E402
 from agent.retrain_config import (KNOBS, baseline_config, canonical_name, config_for,  # noqa: E402
                                   fingerprint, validate_config)
 from src.metric import calculate_score, is_korean  # noqa: E402
@@ -41,8 +49,10 @@ SPLITS = {
     "row_seed42": ("row_split_seed42.json", "row_split", 42),
 }
 MLP_OOF_SPLIT_FILE = "agent_v11_mlp_listwise_group5_seed20261019.json"
+MLP_CUDA_OOF_SPLIT_FILE = "agent_v11_mlp_listwise_cuda_group5_seed20261019.json"
 for _fold in range(5):
     SPLITS[f"mlp_oof_fold{_fold}"] = (MLP_OOF_SPLIT_FILE, "target_vessel_id_group_oof", 20261019)
+    SPLITS[f"mlp_cuda_oof_fold{_fold}"] = (MLP_CUDA_OOF_SPLIT_FILE, "target_vessel_id_group_oof", 20261019)
 CODE_FILES = ("agent/team_v11/source/match_lib.py", "agent/team_v11/source/train.py",
               "agent/retrain_runtime.py", "agent/retrain_config.py", "agent/error_diagnostics.py",
               "agent/mlp_oof_protocol.py", "scripts/v11_improvement_worker.py")
@@ -81,7 +91,8 @@ def load_split(split_name: str):
         if hashes[current] != metadata[recorded]:
             raise ValueError(f"현재 {current}가 v11 학습 기록과 다릅니다")
     if method == "target_vessel_id_group_oof":
-        if split.get("protocol_version") != MLP_OOF_PROTOCOL or split.get("split_method") != method:
+        expected_protocol = CUDA_PROTOCOL_VERSION if split_name.startswith("mlp_cuda_") else MLP_OOF_PROTOCOL
+        if split.get("protocol_version") != expected_protocol or split.get("split_method") != method:
             raise ValueError("허용된 MLP OOF protocol이 아닙니다")
         if split.get("train_sha256") != hashes["train_sha256"] or split.get("catalog_sha256") != hashes["catalog_sha256"]:
             raise ValueError("고정 MLP OOF protocol의 공식 데이터 해시가 현재 입력과 다릅니다")
@@ -91,7 +102,8 @@ def load_split(split_name: str):
     catalog = pd.read_csv(catalog_path, encoding="utf-8-sig")
     all_ids = train["sample_id"].astype(str).tolist()
     if method == "target_vessel_id_group_oof":
-        fold_id = int(split_name.removeprefix("mlp_oof_fold"))
+        fold_id = int(split_name.removeprefix("mlp_cuda_oof_fold")
+                      if split_name.startswith("mlp_cuda_") else split_name.removeprefix("mlp_oof_fold"))
         fold = split["folds"][fold_id]
         fit_ids, valid_ids = fold["train_sample_ids"], fold["valid_sample_ids"]
     else:
@@ -297,7 +309,7 @@ def retrain(split_name: str, run_dir: Path, knob: str, value: str) -> dict:
         suffix = ".cbm" if value == "catboost_v1_cpu" else ".pt"
         model_path = local / f"model_{split_name}_{name}{suffix}"
         model.save_model(str(model_path))
-        if value == "mlp_listwise_v1_cpu":
+        if value in ("mlp_listwise_v1_cpu", "mlp_listwise_v1_cuda"):
             restored = runtime.MLPRanker.load_model(model_path)
             candidate_features = np.vstack([row["features"] for row in details])
             if not np.array_equal(model.predict(candidate_features), restored.predict(candidate_features)):

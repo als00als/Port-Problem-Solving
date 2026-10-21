@@ -1,0 +1,116 @@
+{
+  "protocol_version": "v11-override-gate-1",
+  "status": "frozen_before_any_gate_prediction",
+  "created_local": "2026-10-19",
+  "purpose": "Compare four fixed override policies for the v11 call-sign and name lookups. Measure harm when a lookup points to a wrong vessel and benefit when a lookup rescues a model error, then pick which policies are worth a leaderboard diagnostic. All thresholds are fixed here and are not tuned.",
+  "motivation": [
+    "Stress run agent_v11_stress_oof_20261019_134700_8b55cd (protocol v11-stress-oof-1): a call sign from another training vessel overrode the model on 1,273/1,273 rows and made 1,271 rows wrong while the truth was in the model's top 2-5.",
+    "Row split row_seed42 (run agent_v11_improve_20261019_093455_080a43): the call-sign override fired on 1,771 seen-vessel rows and changed 0 answers, because the model alone was already 2,445/2,445. The clean local data shows no measurable override benefit.",
+    "The random C2 collision is a weak adversary: the injected vessel is almost never in the row's candidate list, so a candidate-membership gate would block it trivially. C3 below adds a plausible collision with a vessel the model already ranks 2-5."
+  ],
+  "non_goals": [
+    "Not a leaderboard or Private estimate. Collision and noise scenarios are assumptions about the test rows.",
+    "Does not change the submission package. Adoption needs a separate packaging step and the user's decision after a leaderboard diagnostic.",
+    "No retraining. Policies only post-process the frozen models' candidate scores and lookup results."
+  ],
+  "policies": {
+    "common": "A policy decides, per row, whether a lookup result may replace the model top-1. Call-sign lookup has priority over name lookup, as in v11. Each source is gated independently with the same rule. A blocked lookup leaves the model top-1 (or the other source's approved result).",
+    "P0_always": "Current v11: apply the lookup whenever it exists (override_policy callsign_and_name).",
+    "P1_off": "Never apply a lookup (override_policy none).",
+    "P2_candidate_member": "Apply the lookup only if the looked-up vessel_id is in the row's model candidate list.",
+    "P3_rank_and_attributes": {
+      "rule": "Apply the lookup only if all of: (a) the looked-up vessel is within the model's top 3 by score (rank 1-3, ties broken by catalog index as in v11 argmax), (b) no tonnage contradiction, (c) no flag contradiction, (d) no vessel-type contradiction. Read every quantity from that candidate's existing v11 feature row.",
+      "tonnage_contradiction": "gap_best < 2.0 (both sides present) and gap_best > 0.25. gap_best == 2.0 means a missing side and counts as no evidence.",
+      "flag_contradiction": "flag_seen == 1 and flag_prob == 0.0 for that candidate. flag_seen == 0 counts as no evidence.",
+      "type_contradiction": "type_seen == 1 and type_prob == 0.0 for that candidate. type_seen == 0 counts as no evidence.",
+      "fixed_constants": {"top_k": 3, "max_relative_tonnage_gap": 0.25},
+      "constant_rationale": "top_k 3 keeps only lookups the model already finds plausible. 0.25 tolerates the +/-20% tonnage noise used in v11-stress-oof-1 (relative gaps 0.167 and 0.2) while rejecting clear size mismatches. Both are set from these structural reasons, not from any gate result."
+    },
+    "model_score_margin": "Not used. LightGBM raw scores are not on a comparable scale across folds and rows, so the protocol uses rank only."
+  },
+  "frozen_inputs": {
+    "train_csv_sha256": "61bfd199c827c9f7486fc8c9febb419c87ff0611a62d60cfbd7c6d177fa0648c",
+    "catalog_csv_sha256": "d3ad65c262ac9ee237d9fb86d36f0866b194cfc17bee58d948f23c97acff81f9",
+    "stress_protocol": {"file": "experiments/protocols/v11_stress_oof_v1.json",
+                        "sha256": "4fc3f8ba3fead033185470caf3b86452b32eb13e4db3df2515df22b3f11fc86a",
+                        "note": "Reuse its perturbation functions and u(...) hash for C2, N2, N5 and T1 unchanged."},
+    "stress_run_summary": {"file": "experiments/results/agent_v11_stress_oof_20261019_134700_8b55cd/summary.json",
+                           "sha256": "8806e79f2e2d1b014e7e884bdd6e13bbe2dd791eebdd1933797d4f9677bb3b58"},
+    "group_oof": "The five group-OOF folds, models, clean case files and clean prediction hashes listed in v11_stress_oof_v1.json frozen_inputs (source run agent_v11_mlp_oof_20261019_120302_49fae2). Verify the same hashes.",
+    "row_split": {
+      "split_file": "experiments/splits/row_split_seed42.json",
+      "split_sha256": "8ab95a2f67a9078902e82977db0a4dc741fd2e86e097a4a77c1c6e7274c05cf8",
+      "source_run": "experiments/results/agent_v11_improve_20261019_093455_080a43",
+      "model_file": "local_only/model_row_seed42_baseline.txt",
+      "model_file_sha256": "3c5ff4e8d7955b692451798950a04a55a6bf17746a7c78d6a5ddf826b36824ea",
+      "clean_cases_file": "local_only/cases_row_seed42_baseline.json",
+      "clean_cases_sha256": "d097338e4bcc6d0615eb7a6881e98ccca6a76266f0203027ebe13571cde19bfb",
+      "diagnose_file": "diagnose_row_seed42.json",
+      "diagnose_sha256": "7fad361c77c7f53b42fae132d43170cdbfcbfc23ce7ae61aaab97309ecb53390",
+      "clean_candidates_sha256": "ca15ab3ed59bf7242265a48d4ce80bd431ffbeba01c384237abe0b54504fccb3",
+      "clean_features_sha256": "0d333497491940ff0ace5bc0532a8083cfa21b114907f3b2ec4ebd6c8a0d3ce3",
+      "clean_correct": "2445/2445",
+      "note": "The source run as a whole is incomplete, but its row_seed42 diagnose step finished. The model is reused only after the G0 replay below passes."
+    }
+  },
+  "scenarios": {
+    "E1_group_clean": {"data": "group OOF, 5 folds, 12,222 rows", "perturbation": "none",
+                       "expectation": "Lookups never fire, so all four policies must give identical predictions."},
+    "E2_group_C2": {"data": "group OOF", "perturbation": "C2_callsign_collision_10pct exactly as in v11-stress-oof-1",
+                    "measures": "harm from a random wrong call sign"},
+    "E2_group_C3": {"data": "group OOF",
+                    "perturbation": "C3_plausible_callsign_collision_10pct (new, defined below)",
+                    "measures": "harm from a wrong call sign that points to a vessel the model already ranks 2-5"},
+    "E3_row_clean": {"data": "row_seed42, 2,445 rows (1,771 seen-vessel rows)", "perturbation": "none",
+                     "expectation": "All lookups agree with the model; no policy may lose a row."},
+    "E3_row_N2": {"data": "row_seed42", "perturbation": "N2_char_edit_one as in v11-stress-oof-1",
+                  "measures": "benefit: seen-vessel rows the noisy name breaks but the unchanged call sign can rescue"},
+    "E3_row_N5": {"data": "row_seed42", "perturbation": "N5_token_order as in v11-stress-oof-1", "measures": "benefit"},
+    "E3_row_T1": {"data": "row_seed42", "perturbation": "T1_tonnage_both_missing as in v11-stress-oof-1", "measures": "benefit"}
+  },
+  "c3_definition": {
+    "id": "C3_plausible_callsign_collision_10pct",
+    "row_selection": "u(sample_id, 'C3_plausible_callsign_collision_10pct', 'select') < 0.10, using the v11-stress-oof-1 hash formula with protocol string 'v11-stress-oof-1' unchanged.",
+    "eligible": "Selected rows whose clean (unperturbed) model ranking has at least one candidate at rank 2-5 that is a vessel in the fold's training call-sign table (that is, some training row's target).",
+    "operation": "Among those eligible candidates, take the best-ranked one (lowest rank; ties by catalog index). Set call_sign to a call sign that maps to that vessel in the fold's training table; if several, take the lexicographically smallest.",
+    "independence": "The choice uses only the row's own clean model output and the fold's training table. It never reads the validation label or other validation rows. Because training and validation targets are group-disjoint, the injected vessel is never the truth.",
+    "audit": "Report selected rows, eligible rows, changed rows and the rank distribution of the injected vessel."
+  },
+  "gates": {
+    "G0_clean_replay": "Group OOF: same check as v11-stress-oof-1 G0 (hashes and 12,222/12,222 final predictions). Row split: candidates and features hashes must equal frozen_inputs.row_split, and P0 final predictions must equal the stored clean case file on 2,445/2,445 rows. Stop on any mismatch.",
+    "G1_policy_equivalence_E1": "In E1 all four policies must give identical predictions. If not, stop and investigate.",
+    "G2_row_independence": "Gate decisions must be pure per-row functions of that row's candidates, scores, features and lookup results. Run the sample reversed-subset and single-row check (at least 5 rows, both languages) for every policy and scenario.",
+    "G3_perturbation_audit": "Record eligible and changed rows per scenario. C3 with 0 eligible rows is not_applicable, not a pass."
+  },
+  "metrics": {
+    "per_policy_and_scenario": [
+      "final correct / rows (all, Korean, non-Korean) and raw weighted score",
+      "lookups available, applied, blocked by reason (not in candidates / rank > 3 / tonnage / flag / type)",
+      "applied_wrong: lookup applied and final wrong",
+      "blocked_would_be_correct: lookup blocked although the looked-up vessel was the truth",
+      "rescued: model top-1 wrong and final correct because of an applied lookup",
+      "harm: model top-1 correct and final wrong because of an applied lookup"
+    ],
+    "summary_quantities": {
+      "H": "total harm over E2_group_C2 + E2_group_C3",
+      "B": "total rescued over E3_row_N2 + E3_row_N5 + E3_row_T1",
+      "net": "B - H"
+    }
+  },
+  "decision_rule": {
+    "eligibility": "A policy is eligible only if G0-G3 pass, E1 is identical to P0, and E3_row_clean loses no row.",
+    "ranking": "Rank eligible policies by net (B - H) descending. Ties: fewer conditions first (P1 < P2 < P3 < P0).",
+    "output": "The top-ranked policy, plus P1 if it is not the top, are the recommended leaderboard diagnostics. This rule picks diagnostics only; it does not adopt a policy for submission.",
+    "caveat": "H and B depend on the chosen 10% collision rate and noise strengths, so net compares policies within this protocol only. It is not a predicted leaderboard change."
+  },
+  "interpretation_limits": [
+    "All official target groups were exposed in earlier validation and error analysis; results are exploratory.",
+    "The row split is the only local data where lookups fire on seen vessels, and its clean model is already 2,445/2,445. Benefit exists here only under perturbation.",
+    "No constant, policy or scenario may be changed after any gate result is seen; a change needs a new protocol version."
+  ],
+  "outputs": {
+    "run_dir": "experiments/results/agent_v11_override_gate_<YYYYmmdd_HHMMSS>_<6hex>/",
+    "files": "pre_run_intent.json, g0_clean_replay.json, gate_<scenario>_<policy>.json (no row ids), summary.json, summary.md, completion_verification.json, local_only/ (row-level, never committed or sent to an LLM)"
+  },
+  "budget": "No training. Roughly 7 scenario passes over existing models with 4 cheap post-process policies each; expected under 1 hour on the same PC. No leaderboard submission inside this protocol."
+}

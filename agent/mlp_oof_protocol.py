@@ -9,6 +9,7 @@ import numpy as np
 
 
 PROTOCOL_VERSION = "v11-mlp-oof-1"
+CUDA_PROTOCOL_VERSION = "v11-mlp-oof-1-cuda"
 LANGUAGES = ("korean", "non_korean")
 
 
@@ -43,7 +44,7 @@ def build_group_oof_split(frame, seed: int = 20261019) -> dict[str, Any]:
             "train_target_group_ids": sorted(set(groups[train_idx])),
             "valid_target_group_ids": sorted(set(groups[valid_idx])),
         })
-    result = {"experiment": "v11 fixed-feature MLP pairwise reranker", "protocol_version": PROTOCOL_VERSION,
+    result = {"experiment": "v11 fixed-feature MLP listwise reranker", "protocol_version": PROTOCOL_VERSION,
               "seed": seed,
               "method": "five-fold StratifiedGroupKFold, target_vessel_id groups, stratified by Korean-name indicator",
               "folds": folds}

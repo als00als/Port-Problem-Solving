@@ -18,7 +18,8 @@ from typing import Any
 
 from .error_diagnostics import DIAGNOSTIC_PROTOCOL, assert_llm_safe
 from .llm_search_planner import ENDPOINT, _setting
-from .retrain_config import (DECISION_RULE, EVIDENCE_TYPES, KNOBS, METRICS, STOP_CONDITIONS,
+from .retrain_config import (DECISION_RULE, EVIDENCE_TYPES, KNOBS, METRICS, OOF_ONLY_RANKERS,
+                             STOP_CONDITIONS,
                              allowed_changes_for_llm, canonical_name, config_for, fingerprint,
                              validate_config)
 
@@ -222,6 +223,8 @@ def propose_deterministic(cross: dict[str, Any], tried: set[str], max_proposals:
             continue
         weight = sum(counts[t] * (2 if t in recurring else 1) for t in cited)
         for value in spec["values"]:
+            if value in OOF_ONLY_RANKERS:
+                continue
             if value == spec["baseline"] or fingerprint(config_for(knob, value)) in tried:
                 continue
             options.append((-weight, order, spec["values"].index(value), knob, value, cited))
@@ -246,6 +249,8 @@ def propose_deterministic(cross: dict[str, Any], tried: set[str], max_proposals:
 def propose_fixed_change(cross: dict[str, Any], knob: str, value: str) -> dict[str, Any]:
     """A user-selected allowed setting still passes the same evidence/duplicate guard."""
     validate_config(config_for(knob, value))
+    if value in OOF_ONLY_RANKERS:
+        raise ValueError("MLP 랭커는 고정 OOF 실험에서만 비교합니다")
     counts = evidence_counts(cross)
     cited = [key for key in KNOBS[knob]["addresses"] if counts.get(key, 0)]
     proposal = {
@@ -281,6 +286,8 @@ def guard(proposals: list[Any], cross: dict[str, Any], tried: set[str], max_prop
             reasons.append("value_not_allowed_for_knob")
         elif value == KNOBS[knob]["baseline"]:
             reasons.append("no_change_duplicates_current_implementation")
+        if value in OOF_ONLY_RANKERS:
+            reasons.append("mlp_ranker_reserved_for_oof")
         if item["duplicates_existing_feature"] is True:
             reasons.append("declared_duplicate_of_existing_feature")
         if item["requires_validation_labels_or_cross_row"] is True:

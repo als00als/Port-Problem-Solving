@@ -4,8 +4,27 @@
 
 ## 현재 상태 (2026-10-19)
 
+MLP OOF의 GPU 실행 경로는 별도 CUDA 프로토콜로 준비되어 있습니다. CUDA 프로토콜 파일은 사전 고정된 CPU 프로토콜의 fold를 그대로 복사해 만들며(`--from-cpu-split`), fold digest가 CPU와 같은지 생성 시점에 확인합니다. 그래도 CPU fold 0~3 결과가 알려진 뒤 만든 파일이므로 CPU OOF가 주 분석이고 CUDA는 보조 장치 확인입니다. CUDA 점수가 더 좋아도 둘 중 유리한 결과를 선택하지 않습니다. 작업자 환경에 CUDA 지원 PyTorch와 GPU가 준비된 경우 저장소 루트에서 아래 명령을 사용합니다. 첫 명령은 새 환경에서 분할 파일이 없을 때만 실행하며 기존 파일을 덮어쓰지 않습니다. 현재 로컬 PyTorch는 CPU 빌드라 GPU 학습·점수는 검증되지 않았습니다. 기준 v11 LightGBM 학습과 후보/특징 생성은 CPU 경로를 유지합니다.
+
+```powershell
+.\.venv_competition_py311\Scripts\python.exe scripts\freeze_v11_mlp_oof_split.py --gpu
+.\.venv_competition_py311\Scripts\python.exe scripts\run_v11_mlp_oof_experiment.py --gpu
+```
+
+실행기는 학습에 사용하는 바로 그 `.venv_competition_py311` Python에서 CUDA 가능 여부를 결과 폴더 생성 전에 확인합니다. 개선 에이전트의 재사용 4분할 계획에서는 CPU·CUDA MLP를 모두 제안하지 않습니다.
+
+주 분석인 CPU OOF의 원본 고정 분할 파일은 복구되어 `experiments/splits/agent_v11_mlp_listwise_group5_seed20261019.json`에 있습니다(SHA-256 `04d92f91874aae3340cb530eb2ca3c53ee1d6b68a94aa0e23a523a3a7b4e2292`). 이 환경에서 같은 seed로 분할을 다시 만들면 **다른 fold가 나오므로**, 이 파일을 재생성하지 말고 그대로 사용하고 CUDA 프로토콜도 이 파일에서 파생시킵니다.
+
+```powershell
+.\.venv_competition_py311\Scripts\python.exe scripts\freeze_v11_mlp_oof_split.py --compare-to experiments\splits\agent_v11_mlp_listwise_group5_seed20261019.json
+.\.venv_competition_py311\Scripts\python.exe scripts\freeze_v11_mlp_oof_split.py --refrozen-after-exposure
+.\.venv_competition_py311\Scripts\python.exe scripts\run_v11_mlp_oof_experiment.py
+```
+
+`--compare-to`는 파일을 쓰지 않고 현재 환경에서 다시 만든 fold digest와 기존 파일의 fold digest를 비교합니다. `--refrozen-after-exposure`로 고정한 파일은 `analysis_role`이 `primary_cpu_oof_refrozen_after_exposure`가 되고, 그 OOF 결과는 사전 고정이 아닌 탐색 결과로 해석합니다. 고정 파일은 덮어쓰지 않으므로, 기존 파일이 있으면 freeze는 실패합니다. GPU 결정성(같은 학습 2회 반복, 배치 크기별 점수 일치)과 행 독립성은 아직 검증되지 않았고 첫 GPU 실행 때 기록해야 합니다.
+
 - 기본 추천 모델은 팀원 코드와 병합한 **v11 LightGBM 랭커**입니다. 기존 EXP-014는 비교용으로 보존합니다.
-- `submissions/team_v11_merged.zip`의 사용자 보고 리더보드 점수는 **0.99244**입니다. 화면·업로드 파일의 해시·언어별 점수·Public/Private 구분은 이 기록에서 직접 확인하지 않았습니다.
+- 2026-10-19 대회 평가 대상이 바뀌고 리더보드가 초기화됐습니다. 초기화 후 `submissions/team_v11_merged.zip`의 사용자 보고 Public 점수는 **0.88**입니다. 리더보드 화면·업로드 파일 해시·언어별 점수는 이 기록에서 직접 확인하지 않았습니다. 초기화 이전 점수는 현재와 비교할 수 없어 문서에서 삭제했습니다. 변경된 운영 규칙은 `CLAUDE.md`와 `GPT.md` 15절을 따릅니다.
 - 보관된 로컬 v11 ZIP의 기록된 SHA-256은 `33dc878b5f4987011eb217f85527d960630225bd80c5d7c2ab60e64448420ab2`입니다. 로컬 파일 동일성과 서버 업로드 파일 동일성은 별도로 확인해야 합니다.
 - 단일 기록 검토 에이전트와 모델 개선 실험 에이전트가 있습니다. 실험 결과를 제출 모델에 자동 적용하지 않습니다.
 - 모든 기존 target 그룹은 과거 검증·오류 분석에 노출됐습니다. 아래 로컬 점수는 **탐색 결과**이며 독립 일반화 성능이나 리더보드 점수의 추정치가 아닙니다.
@@ -24,7 +43,7 @@
 
 실험 그래프는 별도 프로세스로 대회용 Python을 호출합니다. 아래 명령은 저장소 루트에서 이미 준비된 환경을 사용합니다. 상세 모델 학습·연결 방법은 [`agent/team_v11/README.md`](agent/team_v11/README.md)를 따릅니다.
 
-실험에는 Git 제외 로컬 파일인 공식 CSV, `experiments/splits/group_split_seed42.json`·`group_split_seed123.json`·`group_split_seed2026.json`·`row_split_seed42.json`, `team_v11_artifacts/v11/training_metadata.json`도 필요합니다. 작업자는 이 메타데이터와 현재 입력·소스 해시를 대조합니다. 저장소 복제만으로는 이 파일들과 두 가상환경이 준비되지 않습니다. 현재 `requirements-agent-py311.txt`는 저장소에 없으므로, 그 파일을 이용한 새 환경 설치 절차는 제공하지 않습니다.
+고정 분할 중 sample_id 목록만 담은 `experiments/splits/group_split_seed42.json`·`group_split_seed123.json`·`group_split_seed2026.json`·`row_split_seed42.json`은 저장소에 포함합니다. 실험 프로토콜(`experiments/protocols/`)이 참조하는 MLP 5-fold 분할 `agent_v11_mlp_listwise_group5_seed20261019.json`(SHA-256 `04d92f91…`)과 `agent_v11_mlp_listwise_cuda_group5_seed20261019.json`(`d7702028…`)은 fold별 target `vessel_id` 목록을 담고 있어 Git에서 제외하며 별도로 전달합니다. 이 분할은 scikit-learn 버전에 따라 fold가 달라져 다시 만들 수 없으므로, 받은 파일의 해시를 프로토콜 기록과 대조해 사용합니다. 그 밖에 Git 제외 로컬 파일인 공식 CSV와 `team_v11_artifacts/v11/training_metadata.json`도 필요합니다. 작업자는 이 메타데이터와 현재 입력·소스 해시를 대조합니다. 저장소 복제만으로는 이 파일들과 두 가상환경이 준비되지 않습니다. 검토 에이전트의 패키지 목록은 `agent/team_v11/requirements-agent-py311.txt`에 있습니다.
 
 ## 에이전트 사용
 

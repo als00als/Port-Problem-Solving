@@ -21,7 +21,8 @@ from langgraph.graph import END, START, StateGraph
 
 from .error_diagnostics import DIAGNOSTIC_PROTOCOL, assert_llm_safe, cross_split
 from .improvement_planner import build_payload, guard, propose_deterministic, propose_llm, propose_fixed_change
-from .retrain_config import DECISION_RULE, KNOBS, classify_outcome, config_for, validate_config
+from .retrain_config import (DECISION_RULE, KNOBS, OOF_ONLY_RANKERS, classify_outcome,
+                             config_for, validate_config)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -108,6 +109,8 @@ def build_improvement_graph(planner: str = "llm", fixed_change: tuple[str, str] 
     if planner not in {"deterministic", "llm"}:
         raise ValueError("planner는 deterministic 또는 llm이어야 합니다")
     if fixed_change is not None:
+        if fixed_change[1] in OOF_ONLY_RANKERS:
+            raise ValueError("MLP 랭커는 고정 OOF 실험에서만 비교합니다")
         if planner != "deterministic" or len(validate_config(config_for(*fixed_change))) != 1:
             raise ValueError("고정 설정은 deterministic 모드의 단일 변경이어야 합니다")
     builder = StateGraph(LoopState)
@@ -139,7 +142,8 @@ def build_improvement_graph(planner: str = "llm", fixed_change: tuple[str, str] 
         budget = state["budget"]
         print(f"3/6 계획 {round_no}회차 ({planner})", flush=True)
         ledger = load_ledger()
-        tried = {e["fingerprint"] for e in ledger["entries"] if e.get("status") == "executed"}
+        tried = {e["fingerprint"] for e in ledger["entries"]
+                 if e.get("status") in {"executed", "documented_completed", "interrupted"}}
         remaining = {"llm_calls_remaining": budget["max_llm_calls"] - state.get("llm_calls", 0),
                      "training_experiments_remaining":
                          budget["max_training_experiments"] - state.get("experiments_run", 0),
@@ -387,10 +391,10 @@ def run_improvement(planner: str = "llm", budget: Budget | None = None,
     budget = budget or (Budget(1, 1, 1, 1) if fixed_change else Budget())
     if fixed_change is not None and budget != Budget(1, 1, 1, 1):
         raise ValueError("고정 설정 실행은 계획·실험·제안·patience를 각 1로 제한합니다")
+    graph = build_improvement_graph(planner, fixed_change)
     timestamp = datetime.now().astimezone().strftime("%Y%m%d_%H%M%S")
     run_dir = ROOT / "experiments" / "results" / f"agent_v11_improve_{timestamp}_{uuid4().hex[:6]}"
     run_dir.mkdir(parents=True, exist_ok=False)
-    graph = build_improvement_graph(planner, fixed_change)
     limit = 6 + 3 * budget.max_llm_calls + 5
     result = graph.invoke({"run_dir": str(run_dir), "splits": list(splits), "planner": planner,
                            "budget": asdict(budget)}, {"recursion_limit": limit})
