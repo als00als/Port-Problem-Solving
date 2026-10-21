@@ -451,14 +451,8 @@ fuzzy confidence가 낮고 1·2위 후보의 점수 차이가 작은 행에만 �
 
 제출 결과:
 - 제출 파일: `submissions/final_exp013_adaptive.zip`
-- 리더보드 점수: 0.65766
 - seed 42 로컬 가중 점수: 0.6820
 - seed 123 로컬 가중 점수: 0.6630
-- seed 123 로컬 대비 차이: -0.00534
-
-해석:
-리더보드 점수는 seed 123 독립 그룹 분할 점수에 더 가까웠다.
-따라서 seed 42 row 또는 group 분할의 낙관적인 성능보다 독립 그룹 분할 결과가 실제 테스트 일반화 성능을 더 잘 반영한 것으로 판단한다.
 
 ## EXP-011: baseline 특징 확장 RandomForest 재랭커
 
@@ -582,9 +576,6 @@ EXP-014 제출 후보로 채택. 기존 `final_exp013_adaptive.zip`은 보존하
 
 제출 패키지:
 - `submissions/final_exp014_fixed_40_50_60.zip`
-- 리더보드 점수: `0.6763333333`
-- 기존 EXP-013 리더보드 점수: `0.65766`
-- 점수 변화: `+0.0186733333` (+1.8673%p)
 - 그룹별 리더보드 점수는 제공되지 않아 한글·비한글별 변화는 판단하지 않음
 
 ## EXP-017: 고정 후보·특징 LightGBM LambdaRank 재랭커 비교
@@ -671,7 +662,6 @@ EXP-014 제출 후보로 채택. 기존 `final_exp013_adaptive.zip`은 보존하
 - 같은 환경에서 `lightgbm`, `catboost` 모듈은 사용 가능함.
 - 사용자가 공유한 EXP-017/018 결과에서 LambdaRank는 seed 123에서 기준보다 낮았으나 CatBoost는 seed 123에서 소폭 높았다. seed 42·2026은 양 모델 모두 기준보다 높았다. seed별 결과 차이는 상보 가능성을 시사하지만 행별 후보 점수 조합의 개선을 입증하지는 않음.
 - 당시 판단: LGBM·CatBoost validation 후보별 점수를 확보해 제한된 score blend를 시험할 가치가 있다고 봄. 이후 EXP-020에서 후보 점수 앙상블을 실제 검증함.
-- 리더보드 결과 정정: 사용자가 보고한 `final_exp016_korean_limit50.zip` 점수는 `0.674`로 EXP-014 `0.6763333333`보다 낮음. 따라서 현재까지 확인된 최고 리더보드 점수는 EXP-014.
 - XGBoost 실험은 패키지 미설치로 생략함. 앙상블은 별도 노트북에서 후속 실행했고 결과는 EXP-020에 기록함. 새 제출 파일은 만들지 않음.
 
 
@@ -728,12 +718,12 @@ EXP-014 제출 후보로 채택. 기존 `final_exp013_adaptive.zip`은 보존하
 
 확인 내용:
 - 사용자가 `MatchingService.match_vessel()` 결과와 후보별 순위·특징·점수를 노트북에서 확인함
-- 사용자가 EXP-014와 같은 점수 `0.67633`을 확인했다고 보고함
+- 사용자가 EXP-014와 같은 점수를 확인했다고 보고함
 - 점수 비교에 사용한 split, 행 수, 실행 셀·산출물은 현재 기록에서 확인되지 않음
 
 판단:
 - 사용자 보고에 따른 구현 점검으로 기록하며, EXP-014의 독립 재실행이나 정식 신규 실험으로 간주하지 않음
-- 새 모델 설정을 평가하거나 제출 후보를 교체한 결과가 아님. 최고 기록 리더보드 점수는 EXP-014의 `0.6763333333`
+- 새 모델 설정을 평가하거나 제출 후보를 교체한 결과가 아님.
 - LangGraph 에이전트의 실제 실행·평가 결과는 아직 없음
 
 
@@ -941,7 +931,7 @@ Holdout 구성:
 - 제출 후보는 기존 `submissions/final_exp014.zip`의 세 파일을 출발점으로 만든 ZIP이며, 현재 파일명은 `submissions/final_exp022.zip`이다. ZIP SHA-256은 `fd7833eba4f0c417c226ca8054a828b3f1963195cd64331a63267f761d874255`로 최초 생성본과 같다. 패키지 검증 JSON과 `scripts/package_exp022.py`의 경로는 생성 당시 이름 `final_exp022_non_korean_fuzzy.zip`을 기록하므로 파일을 찾을 때는 현재 이름과 해시를 대조한다. 작업 중인 `submit/model/adaptive_lib.py`의 에이전트 실험용 확장 경로는 ZIP에 포함하지 않았다.
 - ZIP을 새 폴더에 풀어 공식 train에서 정답 컬럼을 뺀 3,000행을 두 번 실행했다. 실행 시간 35.33초/34.74초, 출력 3,000행·`sample_id,target_vessel_id` 컬럼·입력 순서·카탈로그 ID 범위·두 실행의 동일 예측을 확인했다. 10행 순서 변경과 단독 행 실행의 예측이 같았고, 패키지 예측이 독립 평가 규칙의 예측과 일치했다. ZIP 무결성, Python 3.11 문법 파싱, `tests/test_exp022_package.py`의 한글 경로 보존·비한글 후보 회수·후보 상한 점검도 통과했다. 이는 로컬 검증이며 공식 서버에서 같은 실행 시간을 보장하지 않는다. 검증 결과: `experiments/results/exp022_non_korean_fuzzy_seed31425/package_verification.json`.
 - 판단: 로컬에서 제출할 가치가 있는 **후보 패키지**다. 과거 탐색과 겹친 자료의 성능이므로 비공개 테스트 점수는 보장할 수 없다. 패키지 생성·검증 당시에는 DACON 업로드를 진행하지 않았다. 공식 평가 페이지(2026-10-18)는 Public을 일부 데이터, Private를 전체 테스트 데이터로 설명하므로 종전 문서의 Public 100% 표기는 수정했다.
-- 리더보드 결과(사용자 보고, 2026-10-18): `submissions/final_exp022.zip`으로 **0.7513333333**. 기존 EXP-014의 **0.6763333333**보다 **+0.0750000000** 높으며, 현재 확인된 최고 기록이다. 로컬 새 분할의 가중 개선폭은 +0.076505였지만 평가 데이터가 달라 두 수치를 동일한 일반화 추정치로 해석하지 않는다. 현재 ZIP의 SHA-256이 위 실험 산출물 해시와 일치함을 로컬에서 확인했다. 리더보드의 한글·비한글별 점수와 비공개 테스트 점수는 제공되지 않아 언어별 실제 개선 원인이나 Private 성능은 판단하지 않는다.
+- 현재 ZIP의 SHA-256이 위 실험 산출물 해시와 일치함을 로컬에서 확인했다.
 - 재현: `scripts/exp022_non_korean_fuzzy_gate.py`, `scripts/package_exp022.py`, `experiments/results/exp022_non_korean_fuzzy_seed31425/summary.json`.
 
 ### 음절 조건 한글→영문 후보 생성 탐색 (seed 31426, 2026-10-18)
@@ -1088,30 +1078,29 @@ Holdout 구성:
 - ZIP을 해제해 3,000행을 두 번 실행한 시간은 **29.00초, 30.01초**였다. 출력 3,000행, `sample_id,target_vessel_id` 형식, catalog 내 ID, 두 실행의 동일 결과, 한글·비한글을 포함한 섞은 부분집합과 각 단독 행의 예측 동일성, 실험 코드와 20개 한글 행의 후보·특징 일치를 확인했다. ZIP 항목과 CRC를 확인했으며 리더보드 제출은 하지 않았다. 기존 `final_exp022.zip`과 `candidate_lambdarank.zip`의 SHA-256은 각각 `fd7833eba4f0c417c226ca8054a828b3f1963195cd64331a63267f761d874255`, `39cd14a82f06a3441981b71678baf677a1f384bac8c8cca4a533fd90446d0362`로 유지됐다.
 - **해석 제한:** seed31438의 한글 OOF top-1 0.807725는 기존 그룹의 반복 노출과 선택 편향이 남은 탐색 결과다. ZIP 생성 및 실행 검증은 제출 형식과 재현성을 확인한 것이며 독립 성능 검증이나 비공개 리더보드 점수는 아니다. 현재 구성과 SHA-256을 고정하고, 새로 라벨된 봉인 그룹이나 별도 승인된 리더보드 결과가 생기기 전에는 성능 확정으로 해석하지 않는다.
 
-### CatBoost seed31438 리더보드 결과와 후보 선택 갱신 (2026-10-18)
+### CatBoost seed31438 패키지 대조와 후보 정리 (2026-10-18)
 
-- 사용자가 `candidate_lambdarank.zip`의 리더보드 점수 **0.84**, `catboost_ngram_negatives.zip`의 점수 **0.765**를 보고했다. CatBoost가 **0.075 낮다**. 이는 사용자 보고 점수이며 이 작업에서 리더보드 화면은 직접 확인하지 않았다.
 - 현재 파일명은 `submissions/catboost_ngram_negatives.zip`이다. SHA-256 `b5f3226be731104f5338b28951c2860f729137da922234becdef05cc4c272226`로 생성 당시 `candidate_catboost_ngram_negatives_seed31438.zip`과 내용이 동일하다. `candidate_lambdarank.zip` 해시도 `39cd14a82f06a3441981b71678baf677a1f384bac8c8cca4a533fd90446d0362`로 유지됐다. 기존 패키지 검증 JSON의 ZIP 경로는 **생성 당시 이름**을 가리킨다.
-- 로컬 중첩 OOF에서는 CatBoost 음성 후보 추가가 한글 top-1을 높였지만, 실제 보고된 리더보드에서는 LambdaRank보다 낮았다. 패키지 코드를 대조하니 **비한글 경로도 서로 다르다**. LambdaRank ZIP의 `model/adaptive_lib.py`는 EXP-022의 비한글 RapidFuzz ratio 검색(top 40, cutoff 50)을 포함한다. CatBoost ZIP에는 현재 작업 폴더의 `adaptive_lib.py`가 들어가 있어 `candidates_with_scores()`가 비한글 fuzzy 검색을 하지 않는다. 따라서 이 리더보드 비교는 랭커만 바꾼 대조 실험이 아니며, 비한글 경로 차이가 하락에 기여했을 가능성이 있다. 리더보드의 언어별 점수·행별 결과가 없어 기여량은 알 수 없고, 기존 그룹 노출·선택 편향도 남아 있다. **현재 관측 점수 기준 선택 후보는 LambdaRank**다. 두 ZIP은 보존하며 이 리더보드 결과를 반복 튜닝의 독립 검증 자료로 취급하지 않는다.
+- 로컬 중첩 OOF에서는 CatBoost 음성 후보 추가가 한글 top-1을 높였다. 패키지 코드를 대조하니 **비한글 경로도 서로 다르다**. LambdaRank ZIP의 `model/adaptive_lib.py`는 EXP-022의 비한글 RapidFuzz ratio 검색(top 40, cutoff 50)을 포함한다. CatBoost ZIP에는 현재 작업 폴더의 `adaptive_lib.py`가 들어가 있어 `candidates_with_scores()`가 비한글 fuzzy 검색을 하지 않는다. 따라서 이 리더보드 비교는 랭커만 바꾼 대조 실험이 아니며, 비한글 경로 차이가 하락에 기여했을 가능성이 있다. 리더보드의 언어별 점수·행별 결과가 없어 기여량은 알 수 없고, 기존 그룹 노출·선택 편향도 남아 있다. **현재 관측 점수 기준 선택 후보는 LambdaRank**다. 두 ZIP은 보존하며 이 리더보드 결과를 반복 튜닝의 독립 검증 자료로 취급하지 않는다.
 
 ### CatBoost 모델 고정 + EXP-022 비한글 검색 복원 패키지 (2026-10-18)
 
 - 사용자 요청에 따라 `submissions/catboost_ngram_negatives.zip`의 모델·음절 매핑·TF-IDF·추론 코드 등은 그대로 두고, **`model/adaptive_lib.py` 한 파일만** `submissions/final_exp022.zip`의 코드로 교체한 별도 후보 `submissions/candidate_catboost_ngram_exp022_non_korean.zip`을 만들었다. SHA-256은 `ef2150e9d3639c9f681e01c3f0d170b0ee075ac2205e4bce1acbdff82e4c7b2a`이다. 교체한 EXP-022 코드는 LambdaRank ZIP에 들어간 `adaptive_lib.py`와도 바이트 단위로 같다. 기존 ZIP 세 개는 수정하지 않았다.
 - ZIP을 해제해 공식 train에서 정답 컬럼을 제거한 3,000행으로 **기능 검증**했다. 기존 CatBoost와 새 ZIP의 한글 293행 예측은 모두 같았고, 비한글 2,707행 중 709행의 예측이 달라졌다. 새 ZIP 두 번의 3,000행 실행 시간은 **55.19초/54.31초**였으며 출력 형식·catalog ID 유효성·반복성·셔플 부분집합과 한글/비한글 단독 행 독립성을 확인했다. 이 3,000행은 모델 학습에 사용된 공식 train에서 가져왔으므로 **성능 추정이나 독립 검증이 아니다**.
-- 구성·CRC·파일별 해시와 실행 결과는 `experiments/results/agent_catboost_exp022_non_korean_package_20261018/package_verification.json`, 재생성 코드는 `scripts/package_catboost_exp022_non_korean.py`에 있다. 새 후보는 리더보드에 제출하지 않았고 점수는 아직 모른다. 기존 사용자 보고 점수 `0.84`(LambdaRank), `0.765`(원래 CatBoost)는 변경되지 않는다.
+- 구성·CRC·파일별 해시와 실행 결과는 `experiments/results/agent_catboost_exp022_non_korean_package_20261018/package_verification.json`, 재생성 코드는 `scripts/package_catboost_exp022_non_korean.py`에 있다. 새 후보는 이 작업에서 리더보드에 제출하지 않았다.
 
-### 비한글 검색 복원 CatBoost 리더보드 결과 (2026-10-18 22:43 KST)
+### 비한글 검색 복원 CatBoost 패키지 확인 (2026-10-18 22:43 KST)
 
-- 사용자가 오후 10시 43분에 만든 ZIP의 현재 파일명 `submissions/catboost_ngram_non_korean.zip`에 대해 리더보드 **0.84**를 보고했다. SHA-256 `ef2150e9d3639c9f681e01c3f0d170b0ee075ac2205e4bce1acbdff82e4c7b2a`로 생성 당시 `candidate_catboost_ngram_exp022_non_korean.zip`과 내용이 같다. 이 작업에서 리더보드 화면의 원점수나 언어별 점수는 직접 확인하지 않았다.
-- 사용자 보고 점수 기준 원래 CatBoost `0.765`에서 검색 복원 후보 `0.84`로 **+0.075** 올랐고, LambdaRank `0.84`와 보고된 자릿수에서 같다. 두 CatBoost ZIP에서 모델·전처리 산출물·추론 코드는 동일하고 `adaptive_lib.py`만 EXP-022 버전으로 바뀌었다. 로컬 기능 확인에서는 한글 293행 예측이 모두 같고 비한글 2,707행 중 709행이 달라졌다. 따라서 앞선 CatBoost 점수 하락에 **비한글 검색 경로 차이가 주요 요인이었음을 뒷받침**한다. 다만 리더보드 행별·언어별 결과와 더 자세한 소수점 점수는 없어 정확한 기여량이나 두 0.84 후보의 우열은 확인할 수 없다.
-- 세 ZIP을 보존한다. 이 한 번의 리더보드 비교를 추가 가중치·검색 설정 튜닝용 독립 검증으로 취급하지 않는다. Private 성능은 아직 모른다.
+- 오후 10시 43분에 만든 ZIP의 현재 파일명은 `submissions/catboost_ngram_non_korean.zip`이다. SHA-256 `ef2150e9d3639c9f681e01c3f0d170b0ee075ac2205e4bce1acbdff82e4c7b2a`로 생성 당시 `candidate_catboost_ngram_exp022_non_korean.zip`과 내용이 같다.
+- 두 CatBoost ZIP에서 모델·전처리 산출물·추론 코드는 동일하고 `adaptive_lib.py`만 EXP-022 버전으로 바뀌었다. 로컬 기능 확인에서는 한글 293행 예측이 모두 같고 비한글 2,707행 중 709행이 달라졌다.
+- 세 ZIP을 보존한다.
 - **문서 인계:** 사용자가 `CLAUDE.md` 변경 사실을 알렸다. 다음 작업자는 최신 `CLAUDE.md`를 다시 읽고 제출 규칙·환경·승인 조건을 실제 파일 상태와 대조해야 한다. 현재 `CLAUDE.md`와 `GPT.md`는 `.gitignore` 대상이므로 Git diff로 변경 전후를 확인할 수 없다. 이 기록은 변경 내용의 추정이 아니다.
 
 ### 팀원 v11 모델과 검토 에이전트의 로컬 통합 (2026-10-18)
 
 - 팀원 저장소 `port-vessel-matching`의 커밋 `4d8640b`에서 `solution/` 코드를 가져왔다. `match_lib.py`와 `script.py`는 원본과 SHA-256이 같고, `train.py`는 현재 프로젝트의 공식 데이터·출력 경로만 조정했다. 팀원 폴더는 수정하지 않았다.
 - 공식 `data/open/train.csv`, `data/open/vessel_catalog.csv`로 Python 3.11.15, LightGBM 4.6.0에서 v11의 `--no-dict --callsign --name-lookup` 설정을 다시 학습했다. 모델·조회표는 Git 제외 폴더 `team_v11_artifacts/v11/src/model/`에 있으며 해시·입력 데이터 해시는 `team_v11_artifacts/v11/training_metadata.json`에 기록했다. 학습 로그의 후보 포함률 1.000은 학습 데이터 수치다.
-- 에이전트의 기본 추천 경로는 이 v11 모델로 연결하고, 기존 EXP-014 매칭은 비교 결과로 분리했다. 기존 추가 검색·후보 비교 도구는 EXP-014 근거를 계속 사용하므로 두 모델의 원점수를 직접 비교하지 않는다. 팀원 README의 Public 0.992444와 CV 0.9951은 팀원 기록이며 이 작업에서 리더보드·독립 성능으로 재확인하지 않았다.
+- 에이전트의 기본 추천 경로는 이 v11 모델로 연결하고, 기존 EXP-014 매칭은 비교 결과로 분리했다. 기존 추가 검색·후보 비교 도구는 EXP-014 근거를 계속 사용하므로 두 모델의 원점수를 직접 비교하지 않는다. 팀원 README의 CV 0.9951은 팀원 기록이며 이 작업에서 독립 성능으로 재확인하지 않았다.
 - 새 제출 ZIP 또는 리더보드 제출은 만들지 않았다.
 
 ### 통합 에이전트 로컬 실행 확인 (2026-10-19)
@@ -1119,3 +1108,677 @@ Holdout 구성:
 - 사용자 승인에 따라 대회용 환경과 분리된 `.venv_agent_py311/`을 만들고 LangGraph 1.2.16 및 v11 추론 패키지를 설치했다. 패키지 목록은 `agent/team_v11/requirements-agent-py311.txt`에 기록했다.
 - 공식 train의 `TRAIN_00000` 한 행에서 정답 열을 제거한 뒤 외부 LLM 없이 검토 그래프를 실행했다. 상태는 `completed`, 기본 모델은 `team_v11`, 기본 추천과 EXP-014 비교 추천은 둘 다 `VESSEL_74373`, 검토 요청은 없었다. 한글 콘솔 출력도 확인했다.
 - 이 입력은 학습 행이고 호출부호 조회가 적용됐으므로 정확도·일반화 성능의 독립 검증이 아니다. 전체 행 독립성, 성능 비교, 제출 패키지 검증은 이 실행으로 확인하지 않았다.
+
+### v11 한글 선박명 후보 검색 실험 (2026-10-19)
+
+- 재현 코드 `scripts/team_v11_hangul_candidate_probe.py`, 집계 기록 `experiments/results/team_v11_hangul_candidates_20261019/summary.json`. 공식 train/catalog만 사용하고, `target_vessel_id` 기준 5-fold 그룹 분할에서 각 fold의 학습 행만으로 조회표를 만들었다. 검증 행의 정답을 후보 생성 함수에 전달하지 않았다. 비교는 v11 기존 `USE_VOCAB=False`와 카탈로그 단어장 확장 `USE_VOCAB=True`이며 모델 재학습이나 제출 ZIP 변경은 하지 않았다.
+- 한글 검증 1,191행의 정답 후보 포함률은 기존 **1,191/1,191**, 단어장 확장 **1,191/1,191**이다. 새로 회복한 정답은 **0행**이다. 행당 평균 후보는 **198.81 → 210.39개**, 조회표·카탈로그 색인 준비 이후 검색 단계 누적 시간은 **26.87 → 42.49초**였다. 이는 같은 컴퓨터에서 순차 실행한 참고 시간이며 서버 전체 추론 시간은 아니다.
+- 서로 다른 `(vessel_name, target_vessel_id)` 382쌍에서 이름 유사도만으로 정답이 공동 1위에 드는 비율은 기존 표기 **310/382 (0.8115)**, 단어장 표기만 **290/382 (0.7592)**, 둘 중 하나라도 **324/382 (0.8482)**였다. 동점은 정답에 유리하게 처리한 검색 진단 지표다. 랭커를 재학습하거나 최종 정확도를 측정한 결과가 아니다.
+- 현 그룹에서 후보 누락이 없어 단어장 확장을 현재 제출 예측기에 채택할 근거는 없다. 두 표기의 상보성은 후속 랭커 실험 가설일 뿐이다. 모든 기존 target 그룹이 과거 분석에 노출됐으므로 이 OOF 집계도 독립 일반화 추정치가 아니다.
+- 검토 에이전트 흐름 확인: 공식 train 한글 행 `TRAIN_00007`에서 `--mode agent`를 외부 LLM 없이 실행했다. 기본 모델은 `team_v11`, 추천은 `VESSEL_64486`(학습 호출부호 조회), 기존 EXP-014 비교 추천도 `VESSEL_64486`, 검토 요청은 없었다. 학습 행을 전체 학습 산출물로 조회한 기능 확인이며 후보 검색 실험의 성능 근거가 아니다. 에이전트는 이번 5-fold 실험 실행이나 설정 선택에 참여하지 않았다.
+- 현재 제출 ZIP `submissions/team_v11_merged.zip`의 SHA-256은 `33dc878b5f4987011eb217f85527d960630225bd80c5d7c2ab60e64448420ab2`로 앞서 만든 v11 패키지 해시와 같다. 파일명은 앞선 기록의 `team_v11_merged_20261019.zip`과 다르며 변경 경위는 확인하지 않았다. 이 실험에서 ZIP을 수정하거나 새 리더보드 제출을 하지는 않았다.
+
+### team_v11_merged 패키지 해시 확인 (2026-10-19)
+
+- 로컬 `submissions/team_v11_merged.zip`의 SHA-256은 `33dc878b5f4987011eb217f85527d960630225bd80c5d7c2ab60e64448420ab2`로 이전에 만든 v11 패키지와 같다. 따라서 로컬 파일 내용의 동일성은 확인했지만, 이를 업로드된 파일의 해시 확인으로 해석하지 않는다.
+
+### v11 자동 후보 검색 실험 — 초기 그룹 분할 실행 (2026-10-19)
+
+- 실행 ID: `agent_v11_search_20261019_003000_8b7e34`. 고정 `group_split_seed42.json`; 공식 train/catalog만 사용. 설정은 결정적 허용 목록에서 자동 생성했고 각 설정의 랭커를 별도 재학습했다.
+- 이 첫 실행은 선박 그룹 분할만 포함했다. 아래 통합 실행에서 고정 행 분할과 학습에서 본 선박/처음 본 선박 집계를 추가했다.
+- 가설: 공식 카탈로그 단어장 표기 확장은 한글 후보의 구성과 랭커 입력 특징을 바꾼다. 확장 폭 1·3을 기준 v11과 비교해 후보 포함률, 최종 정확도, 비용을 확인한다.
+- 검증 예측에는 정답 열을 전달하지 않았고, 학습·검증 target 그룹 겹침 0, 조회표의 학습 그룹 한정, 부분집합·단독 행 예측 일치를 확인했다.
+
+| 설정 | 전체 | 한글 | 비한글 | 가중 원점수 | 한글 후보 포함 | 비한글 후보 포함 | 평균 후보 수 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| v11_baseline | 2341/2344 (0.998720) | 243/243 (1.000000) | 2098/2101 (0.998572) | 0.999572 | 243/243 | 2101/2101 | 107.54 |
+| vocab_top1 | 2341/2344 (0.998720) | 243/243 (1.000000) | 2098/2101 (0.998572) | 0.999572 | 243/243 | 2101/2101 | 108.91 |
+| vocab_top3 | 2340/2344 (0.998294) | 243/243 (1.000000) | 2097/2101 (0.998096) | 0.999429 | 243/243 | 2101/2101 | 108.77 |
+
+- 재사용 검증 구간의 최고 설정: `v11_baseline`. 기존 target 그룹은 과거 분석에 노출됐으므로 독립 일반화 추정이나 제출 승격 근거가 아니다. 제출 ZIP과 리더보드는 변경하지 않았다.
+- 재현 기록: `experiments/results/agent_v11_search_20261019_003000_8b7e34/summary.json` (입력·코드·분할 해시, 설정별 상세 점수·시간 포함).
+
+### v11 자동 후보 검색 실험 — 두 고정 분할 통합 실행 (2026-10-19)
+
+- 실행 ID: `agent_v11_search_20261019_003906_38d48d`. 고정 `group_split_seed42.json`과 `row_split_seed42.json`; 공식 train/catalog만 사용. 설정은 결정적 허용 목록에서 자동 생성했고 각 설정의 랭커를 별도 재학습했다.
+- 가설: 공식 카탈로그 단어장 표기 확장은 한글 후보의 구성과 랭커 입력 특징을 바꾼다. 확장 폭 1·3을 기준 v11과 비교해 후보 포함률, 최종 정확도, 비용을 확인한다.
+- 검증 예측에는 정답 열을 전달하지 않았다. 그룹 분할에서 target 그룹 겹침은 0이며, 행 분할은 학습에서 본 선박과 처음 보는 선박을 별도로 집계한다. 조회표는 각 학습 분할에서만 만들었고 설정마다 4개 행의 부분집합·단독 예측 일치를 확인했다.
+
+| 분할 | 설정 | 전체 | 한글 | 비한글 | 가중 원점수 | 한글 후보 포함 | 비한글 후보 포함 | 본 선박 정답 | 처음 본 선박 정답 | 평균 후보 수 |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| group | v11_baseline | 2341/2344 (0.998720) | 243/243 (1.000000) | 2098/2101 (0.998572) | 0.999572 | 243/243 | 2101/2101 | 0/0 | 2341/2344 | 107.54 |
+| group | vocab_top1 | 2341/2344 (0.998720) | 243/243 (1.000000) | 2098/2101 (0.998572) | 0.999572 | 243/243 | 2101/2101 | 0/0 | 2341/2344 | 108.91 |
+| group | vocab_top3 | 2340/2344 (0.998294) | 243/243 (1.000000) | 2097/2101 (0.998096) | 0.999429 | 243/243 | 2101/2101 | 0/0 | 2340/2344 | 108.77 |
+| row | v11_baseline | 2445/2445 (1.000000) | 234/234 (1.000000) | 2211/2211 (1.000000) | 1.000000 | 234/234 | 2211/2211 | 1771/1771 | 674/674 | 105.88 |
+| row | vocab_top1 | 2445/2445 (1.000000) | 234/234 (1.000000) | 2211/2211 (1.000000) | 1.000000 | 234/234 | 2211/2211 | 1771/1771 | 674/674 | 106.96 |
+| row | vocab_top3 | 2445/2445 (1.000000) | 234/234 (1.000000) | 2211/2211 (1.000000) | 1.000000 | 234/234 | 2211/2211 | 1771/1771 | 674/674 | 106.83 |
+
+- 재사용 그룹 분할 최고 설정: `v11_baseline`; 행 분할 최고 설정: `v11_baseline`. 기존 target 그룹은 과거 분석에 노출됐으므로 독립 일반화 추정이나 제출 승격 근거가 아니다. 제출 ZIP과 리더보드는 변경하지 않았다.
+- 재현 기록: `experiments/results/agent_v11_search_20261019_003906_38d48d/summary.json` (입력·코드·분할 해시, 설정별 상세 점수·시간 포함).
+
+### 팀원 병합·에이전트 개발·후보 검색 실험 현재 상태 (2026-10-19)
+
+- **병합:** 팀원 저장소 커밋 `4d8640b`의 v11 코드를 `agent/team_v11/source/`에 보존하고, 공식 train/catalog로 `--no-dict --callsign --name-lookup` 모델을 다시 학습했다. 입력·소스·모델 해시는 `team_v11_artifacts/v11/training_metadata.json`에 있다. `submissions/team_v11_merged.zip`의 로컬 SHA-256은 `33dc878b5f4987011eb217f85527d960630225bd80c5d7c2ab60e64448420ab2`이다.
+- **단일 기록 검토 에이전트:** `agent/integrated_service.py`와 `agent/graph.py`에서 v11을 기본 추천으로, EXP-014를 비교 추천으로 제공한다. EXP-014 기반 추가 검색·후보 비교와 v11 원점수를 섞어 평가하지 않는다. 별도 `.venv_agent_py311/`의 LangGraph로 공식 train 한 행을 실행해 연결을 확인했지만, 이는 학습 행 기능 확인이다. 사람 검토의 실제 중단·재개와 전체 수용 조건 검증은 남아 있다.
+- **실험 에이전트:** `agent/experiment_graph.py`가 공식 입력·분할 감사, 제한된 가설·설정 생성, 설정별 재학습·고정 검증, 후보 포함률·최종 점수 비교, 집계 결과 기록을 순서대로 실행한다. 진입점은 `scripts/run_v11_experiment_agent.py`, 학습 작업자는 `scripts/v11_experiment_worker.py`다. 새 설정은 v11 기준과 공식 catalog 단어장 확장 상위 1개·3개의 허용 목록에서 생성한다. 외부 LLM, 임의 코드 수정, 제출 모델 자동 교체, 리더보드 제출 기능은 없다.
+- **실험 판단:** 앞선 5-fold 한글 후보 진단에서는 기준·확장 모두 정답 후보 포함 `1,191/1,191`이었다. 이후 두 고정 seed42 분할에서 설정별 랭커까지 재학습했다. 그룹 분할의 가중 원점수는 기준·확장 1개가 `0.999572`, 확장 3개가 `0.999429`였고 한글 후보 포함은 모두 `243/243`이었다. 행 분할에서는 세 설정 모두 `2,445/2,445` 정답이었다. 후보 수는 늘었지만 점수 개선이 없어 단어장 확장을 제출 모델에 채택하지 않았다. 상세 행 수·언어별 정확도·누수 점검은 바로 위 통합 실행 항목과 해당 `summary.json`을 따른다.
+- **해석과 보존:** 검증 정답 열 제거, 그룹 분할 target 겹침 0, 학습 분할만 사용한 조회표, 설정별 4개 행의 단독·부분집합 예측 일치를 확인했다. 전체 행 독립성 전수 검사는 아니며 모든 기존 target 그룹이 과거 분석에 노출되어 점수는 탐색용이다. 기존 변경사항과 제출 ZIP을 보존했고 이 흐름에서 새 리더보드 제출은 하지 않았다.
+
+### LLM 검색 정책 제안 경로 구현 (2026-10-19, 실행 결과 아님)
+
+- `scripts/run_v11_experiment_agent.py --planner llm` 선택 경로를 추가했다. LLM은 정적 과제 설명과 제한된 JSON 형식만 받아 검색 정책 1~2개를 제안하며, 공식 train/catalog의 행·정답·점수 집계는 API에 전송하지 않도록 구현했다.
+- 정책은 언어 조건, 이름 표기, 카탈로그 문자열 필드, RapidFuzz 유사도, 후보 수·최소 유사도·톤수 차이 한도를 조합한다. 형식과 후보 예산을 검사한 뒤 기존 v11 후보와 합친다. LLM이 만든 코드를 실행하거나 제출 패키지를 바꾸지 않는다.
+- 비교 작업자는 공식 train/catalog와 고정 seed42 그룹·행 분할을 사용한다. 각 분할에서 기준 랭커를 한 번 학습해 고정하고, 같은 검증 행에서 후보 포함률·최종 점수·후보 수·실행 시간을 비교한다. 검증 정답 열은 예측 입력에서 제거한다. 정책으로 랭커를 재학습한 점수가 아니라 **검색 정책 선별**이다.
+- 실제 LLM API 호출과 새 정책의 수치 평가는 아직 하지 않았다. 기존 로컬 분할은 과거 분석에 노출되어 이후 점수도 탐색용이다. 기존 제출 ZIP과 리더보드는 변경하지 않았다.
+
+### v11 자동 후보 검색 실험 (llm, 2026-10-19)
+
+- 실행 ID: `agent_v11_search_20261019_011012_4bed4e`. 고정 `group_split_seed42.json`과 `row_split_seed42.json`; 공식 train/catalog만 사용. LLM이 제안한 검색 정책을 구조·예산 검사 후 실행했다. 분할마다 기준 랭커를 한 번 학습해 고정하고 검색 후보만 바꿔 선별 평가했다. API에는 공식 데이터 행·정답·집계를 보내지 않았다.
+- 가설: Korean arrivals can be missed when romanization differs from the catalog, while translated names may match the catalog's English naming. Unioning a romanized compact-name search with a translation-oriented token-set search provides complementary candidates, with tonnage gating reducing implausible translated-name matches. / Non-Korean records may use abbreviated, reordered, or punctuation-heavy names that are not captured by direct matching. English variants address alias and word-order differences, while skeleton matching supplies a tolerant fallback for formatting and character noise without requiring a single exact spelling.
+- 검증 예측에는 정답 열을 전달하지 않았다. 그룹 분할에서 target 그룹 겹침은 0이며, 행 분할은 학습에서 본 선박과 처음 보는 선박을 별도로 집계한다. 조회표는 각 학습 분할에서만 만들었고 설정마다 4개 행의 부분집합·단독 예측 일치를 확인했다.
+
+| 분할 | 설정 | 전체 | 한글 | 비한글 | 가중 원점수 | 한글 후보 포함 | 비한글 후보 포함 | 본 선박 정답 | 처음 본 선박 정답 | 평균 후보 수 |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| group | v11_baseline | 2341/2344 (0.998720) | 243/243 (1.000000) | 2098/2101 (0.998572) | 0.999572 | 243/243 | 2101/2101 | 0/0 | 2341/2344 | 107.54 |
+| group | korean_dual_name_bridge | 2341/2344 (0.998720) | 243/243 (1.000000) | 2098/2101 (0.998572) | 0.999572 | 243/243 | 2101/2101 | 0/0 | 2341/2344 | 109.34 |
+| group | variant_skeleton_fallback | 2341/2344 (0.998720) | 243/243 (1.000000) | 2098/2101 (0.998572) | 0.999572 | 243/243 | 2101/2101 | 0/0 | 2341/2344 | 112.29 |
+| row | v11_baseline | 2445/2445 (1.000000) | 234/234 (1.000000) | 2211/2211 (1.000000) | 1.000000 | 234/234 | 2211/2211 | 1771/1771 | 674/674 | 105.88 |
+| row | korean_dual_name_bridge | 2445/2445 (1.000000) | 234/234 (1.000000) | 2211/2211 (1.000000) | 1.000000 | 234/234 | 2211/2211 | 1771/1771 | 674/674 | 107.57 |
+| row | variant_skeleton_fallback | 2445/2445 (1.000000) | 234/234 (1.000000) | 2211/2211 (1.000000) | 1.000000 | 234/234 | 2211/2211 | 1771/1771 | 674/674 | 110.83 |
+
+- 재사용 그룹 분할 최고 설정: `v11_baseline`; 행 분할 최고 설정: `v11_baseline`. LLM 제안의 고정 랭커 선별 결과이며 별도 재학습 모델의 점수가 아니다. 기존 target 그룹은 과거 분석에 노출됐으므로 독립 일반화 추정이나 제출 승격 근거가 아니다. 제출 ZIP과 리더보드는 변경하지 않았다.
+- 재현 기록: `experiments/results/agent_v11_search_20261019_011012_4bed4e/summary.json` (입력·코드·분할 해시, 설정별 상세 점수·시간 포함).
+
+### 검색 정책 `english_variant` 불일치 수정과 진단 기반 재학습 루프 구현 (2026-10-19)
+
+- **기존 실행 대조:** `agent_v11_search_20261019_011012_4bed4e`의 `summary.json`을 다시 읽어 위 표와 일치함을 확인했다(그룹 `2341/2344`, 한글 후보 `243/243`, 비한글 후보 `2101/2101`, 가중 원점수 `0.999572`; 두 LLM 정책 모두 정확도·후보 포함률 동일, 평균 후보 수 `107.54→109.34/112.29`, 그룹 예측 시간 `22.4→50.7/131.4초`). LLM 1회 호출(`gpt-5.6-luna`, 입력 501·출력 833토큰)이 있었고, 분할마다 기준 랭커를 고정한 **검색 선별**이며 재학습 평가가 아니었다.
+- **발견한 불일치와 수정:** `variant_skeleton_fallback`의 첫 단계는 `when=non_korean`, `english_variant`, `token_set_ratio`였다. 비한글 질의는 로마자 변형 목록이 비어 있어 `english_variant`가 기본 `compact` 이름으로 되돌아갔고, `token_set_ratio`는 공백 없는 문자열에서 계산됐다(예: `PIONEER OCEAN 2`/`OCEAN PIONEER 2`가 공백 제거 시 61.5, 토큰 비교 시 100). 따라서 그 정책은 이름이 말하는 “영문 변형·토큰 순서” 가설을 시험하지 않았다. `agent/search_policy.py`에서 한글 전용 형식은 비한글 행에서 건너뛰고, `when=non_korean`과 조합하면 거부하며, 공백 토큰 형식 `tokens`를 추가하고 `token_set_ratio`는 `tokens` 질의·필드에서만 허용하도록 고쳤다. 단계별 실제 적용 행 수(`policy_behavior_probe`)도 기록한다. 기존 결과 파일은 보존했으며 수정 정책으로 재선별하지 않았다.
+- **새 루프:** `agent/improvement_graph.py`(LangGraph) → `scripts/v11_improvement_worker.py`(대회용 Python 3.11). 감사 → 분할별 기준 v11 재학습·오류 진단 → LLM 또는 결정적 계획 → 로컬 검사 → 단일 변경 재학습·비교 → 중단 판단 → 기록. 허용 설정은 `agent/retrain_config.py::KNOBS` 9개이고 한 실험은 한 항목만 바꾼다. 어려운 음성 후보 선택은 각 내부 학습 fold의 후보 안에서만 하고, 검증 정답은 예측이 끝난 뒤 평가 단계에서만 붙인다. 진단 선택 규칙(`DIAGNOSTIC_PROTOCOL`: 오답 전부, 정답 중 1·2위 점수 차가 가장 작은 50행, 차이→sample_id 오름차순)과 개선 판정(`DECISION_RULE` v11-improvement-1: 평균 가중 원점수 +0.0005 이상, 2개 이상 분할 개선, 모든 분할에서 한글·비한글·가중 비하락)은 실행 전에 코드로 고정했다.
+- **LLM 경계:** 요청에는 집계 진단·구현 목록·이전 실험 결과·허용 설정·남은 예산만 넣고 `assert_llm_safe`로 ID 형식·한글·비유한 숫자를 막는다. 실제 요청 본문(키 제외)은 `<run>/llm/round_N_request.json`에 남는다. 응답은 엄격 JSON 스키마이며, 범위 밖·기준과 동일·중복·근거 불일치·정답/다른 행/외부 데이터 요구·코드/경로/식별자 문장은 실행하지 않고 사유를 기록한다. 이전 실행 결과는 `experiments/results/agent_improvement_ledger.json`(집계만, Git 제외)으로 다음 계획 입력과 중복 차단에 쓴다.
+- **검증:** `parity --split group_seed42 --rows 1500`에서 기준 설정의 학습 행렬·랭커 파라미터·모델 문자열·검증 예측이 팀 `train.training_matrix`/`fit`/`match_lib.predict`와 모두 같았다(76.5초). 각 진단 실행에서 전체 검증 행의 기준 예측이 팀 `predict`와 같음과 4~5행의 역순 부분집합·단독 예측 일치를 검사한다(전수 독립성 검사 아님). `tests/test_improvement_agent.py` 18개(가드 거부 사유, 단일 변경, 판정 규칙, 진단 분류·식별자 차단, 가짜 작업자로 예산·patience·후보 소진 중단)와 기존 테스트 포함 `unittest discover` 29개가 통과했다. 단일 분할 결정적 스모크 실행(`agent_v11_improve_20261019_014431_25f72b`, 원장·LOG는 임시 폴더로 분리)도 완료했다.
+- 이 작업에서 제출 ZIP 생성·교체와 리더보드 제출은 하지 않았다. `submissions/*.zip` 10개의 수정 시각이 모두 이번 작업 이전이고, 해시가 기록된 5개(`team_v11_merged`, `final_exp022`, `candidate_lambdarank`, `catboost_ngram_negatives`, `catboost_ngram_non_korean`)는 기록과 같은 SHA-256임을 확인했다.
+
+### v11 진단 기반 단일 변경 재학습 루프 (llm, 2026-10-19)
+
+- 실행 ID: `agent_v11_improve_20261019_014952_2aad5f`. 분할: group_seed42, group_seed123, group_seed2026, row_seed42 (모두 과거 검증·오류 분석에 노출된 재사용 분할, 행 중복 있음 — 독립 검증 아님). 공식 train/catalog만 사용.
+- LLM 호출 1회, 학습 실험 3/3회, 중단 사유 `training_experiment_budget_exhausted`.
+- 기준 v11(분할별 재학습, seed 42):
+
+| 분할 | 전체 | 한글 | 비한글 | 가중 원점수 | 후보 포함 | 학습 s | 예측 s |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| group_seed42 | 2341/2344 | 243/243 | 2098/2101 | 0.999572 | 2344/2344 | 103 | 22 |
+| group_seed123 | 2430/2433 | 261/261 | 2169/2172 | 0.999586 | 2433/2433 | 103 | 23 |
+| group_seed2026 | 2400/2402 | 214/215 | 2186/2187 | 0.996607 | 2402/2402 | 104 | 22 |
+| row_seed42 | 2445/2445 | 234/234 | 2211/2211 | 1.000000 | 2445/2445 | 103 | 23 |
+
+- 반복 진단 유형: tonnage_favored_truth_lost, name_similarity_favored_wrong, other_rank_failure, near_miss_runner_up_same_name, near_miss_runner_up_number_mismatch, near_miss_query_tonnage_missing, near_miss_runner_up_closer_tonnage; 분할 특이 유형: query_tonnage_missing, near_miss_override_applied.
+
+| 회차 | 설정 | 결과 | 평균 Δ가중 | 분할별 Δ가중 | 새로 맞힘/틀림 | 동작 검사 | 재학습 |
+|---:|---|---|---:|---|---:|---|---|
+| 1 | `tonnage_missing_encoding__nan` | regressed | -0.000070 | -0.000143, +0.000000, -0.000137, +0.000000 | 0/2 | 통과 | 예 |
+| 1 | `hard_negative_top_n__50` | regressed | -0.002751 | -0.000143, -0.010590, +0.000000, -0.000271 | 4/10 | 통과 | 예 |
+| 1 | `num_leaves__63` | no_effect | +0.000000 | +0.000000, +0.000000, +0.000000, +0.000000 | 0/0 | 통과 | 예 |
+- 남은 예산: 계획 회차 2회 (LLM 호출 포함), 학습 실험 0회.
+- 개선 판정 규칙(사전 고정, v11-improvement-1): 모든 분할에서 한글·비한글 정확도와 가중 원점수가 하락하지 않고, 평균 가중 원점수 변화 >= 0.0005, 개선 분할 >= 2개. 결과는 탐색용이며 독립 일반화 성능이나 제출 승격 근거가 아니다. 제출 ZIP·제출 코드·리더보드는 변경하지 않았다.
+- 재현 기록: `experiments/results/agent_v11_improve_20261019_014952_2aad5f/summary.json` (행 ID 포함 사례 파일은 `local_only/`, Git 제외).
+
+### v11 진단 기반 단일 변경 재학습 루프 (llm, 2026-10-19)
+
+- 실행 ID: `agent_v11_improve_20261019_022638_b5dbbf`. 분할: group_seed42, group_seed123, group_seed2026, row_seed42 (모두 과거 검증·오류 분석에 노출된 재사용 분할, 행 중복 있음 — 독립 검증 아님). 공식 train/catalog만 사용.
+- LLM 호출 1회, 학습 실험 1/1회, 중단 사유 `training_experiment_budget_exhausted`.
+- 기준 v11(분할별 재학습, seed 42):
+
+| 분할 | 전체 | 한글 | 비한글 | 가중 원점수 | 후보 포함 | 학습 s | 예측 s |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| group_seed42 | 2341/2344 | 243/243 | 2098/2101 | 0.999572 | 2344/2344 | 104 | 22 |
+| group_seed123 | 2430/2433 | 261/261 | 2169/2172 | 0.999586 | 2433/2433 | 103 | 23 |
+| group_seed2026 | 2400/2402 | 214/215 | 2186/2187 | 0.996607 | 2402/2402 | 104 | 22 |
+| row_seed42 | 2445/2445 | 234/234 | 2211/2211 | 1.000000 | 2445/2445 | 104 | 23 |
+
+- 반복 진단 유형: tonnage_favored_truth_lost, name_similarity_favored_wrong, other_rank_failure, near_miss_runner_up_same_name, near_miss_runner_up_number_mismatch, near_miss_query_tonnage_missing, near_miss_runner_up_closer_tonnage; 분할 특이 유형: query_tonnage_missing, near_miss_override_applied.
+
+| 회차 | 설정 | 결과 | 평균 Δ가중 | 분할별 Δ가중 | 새로 맞힘/틀림 | 동작 검사 | 재학습 |
+|---:|---|---|---:|---|---:|---|---|
+| 1 | `monotone_constraints__off` | regressed | -0.000035 | -0.000143, +0.000138, +0.000000, -0.000136 | 1/2 | 통과 | 예 |
+- 남은 예산: 계획 회차 0회 (LLM 호출 포함), 학습 실험 0회.
+- 개선 판정 규칙(사전 고정, v11-improvement-1): 모든 분할에서 한글·비한글 정확도와 가중 원점수가 하락하지 않고, 평균 가중 원점수 변화 >= 0.0005, 개선 분할 >= 2개. 결과는 탐색용이며 독립 일반화 성능이나 제출 승격 근거가 아니다. 제출 ZIP·제출 코드·리더보드는 변경하지 않았다.
+- 재현 기록: `experiments/results/agent_v11_improve_20261019_022638_b5dbbf/summary.json` (행 ID 포함 사례 파일은 `local_only/`, Git 제외).
+
+### v11 진단 기반 단일 변경 재학습 루프 (deterministic, 2026-10-19)
+
+- 실행 ID: `agent_v11_improve_20261019_062733_04f948`. 분할: group_seed42, group_seed123, group_seed2026, row_seed42 (모두 과거 검증·오류 분석에 노출된 재사용 분할, 행 중복 있음 — 독립 검증 아님). 공식 train/catalog만 사용.
+- LLM 호출 0회, 학습 실험 1/1회, 중단 사유 `training_experiment_budget_exhausted`.
+- 기준 v11(분할별 재학습, seed 42):
+
+| 분할 | 전체 | 한글 | 비한글 | 가중 원점수 | 후보 포함 | 학습 s | 예측 s |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| group_seed42 | 2341/2344 | 243/243 | 2098/2101 | 0.999572 | 2344/2344 | 106 | 22 |
+| group_seed123 | 2430/2433 | 261/261 | 2169/2172 | 0.999586 | 2433/2433 | 103 | 23 |
+| group_seed2026 | 2400/2402 | 214/215 | 2186/2187 | 0.996607 | 2402/2402 | 104 | 22 |
+| row_seed42 | 2445/2445 | 234/234 | 2211/2211 | 1.000000 | 2445/2445 | 105 | 23 |
+
+- 반복 진단 유형: tonnage_favored_truth_lost, name_similarity_favored_wrong, other_rank_failure, near_miss_runner_up_same_name, near_miss_runner_up_number_mismatch, near_miss_query_tonnage_missing, near_miss_runner_up_closer_tonnage; 분할 특이 유형: query_tonnage_missing, near_miss_override_applied.
+
+| 회차 | 설정 | 결과 | 평균 Δ가중 | 분할별 Δ가중 | 새로 맞힘/틀림 | 동작 검사 | 재학습 |
+|---:|---|---|---:|---|---:|---|---|
+| 1 | `number_features__no_asymmetry` | regressed | -0.000001 | -0.000143, +0.000000, +0.000137, +0.000000 | 1/1 | 통과 | 예 |
+- 남은 예산: 계획 회차 0회 (결정적 계획, LLM 미사용), 학습 실험 0회.
+- 개선 판정 규칙(사전 고정, v11-improvement-1): 모든 분할에서 한글·비한글 정확도와 가중 원점수가 하락하지 않고, 평균 가중 원점수 변화 >= 0.0005, 개선 분할 >= 2개. 결과는 탐색용이며 독립 일반화 성능이나 제출 승격 근거가 아니다. 제출 ZIP·제출 코드·리더보드는 변경하지 않았다.
+- 재현 기록: `experiments/results/agent_v11_improve_20261019_062733_04f948/summary.json` (행 ID 포함 사례 파일은 `local_only/`, Git 제외).
+
+- 추가 해석·확인: 새로 맞힌 1건은 seed2026의 `tonnage_favored_truth_lost`, 새로 틀린 1건은 seed42의 `same_name_collision`이었다. 두 건 모두 비한글이고 다른 두 분할은 예측 변화가 없었다. 평균 Δ가중의 정확한 값은 `-0.0000014037341940775772`이며, 미세한 평균 변화만으로 일반 성능 저하를 주장하지 않고 일관된 개선 근거가 없어 미채택한다. 기존 기준 모델 해시가 네 분할 모두 앞선 실행과 같고, 특징 비활성화·조회표 범위·검증 정답 제거·표본 행 독립성 검사를 통과했다. 보관 ZIP 10개는 실행 중 기록한 스냅샷과 종료 시 SHA-256이 같았다. 확인 결과는 같은 실행 폴더의 `completion_verification.json`, 기준 모델의 두 특징 사용량은 `baseline_number_feature_usage.json`에 있다. 루트 README와 에이전트 README·인계 문서를 실제 결과에 맞췄고, 이번에는 모델 개선 코드를 변경하지 않았다.
+
+### v11 진단 기반 단일 변경 재학습 루프 (deterministic, 2026-10-19)
+
+- 실행 ID: `agent_v11_improve_20261019_072054_425152`. 분할: group_seed42, group_seed123, group_seed2026, row_seed42 (모두 과거 검증·오류 분석에 노출된 재사용 분할, 행 중복 있음 — 독립 검증 아님). 공식 train/catalog만 사용.
+- LLM 호출 0회, 학습 실험 1/1회, 중단 사유 `training_experiment_budget_exhausted`.
+- 기준 v11(분할별 재학습, seed 42):
+
+| 분할 | 전체 | 한글 | 비한글 | 가중 원점수 | 후보 포함 | 학습 s | 예측 s |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| group_seed42 | 2341/2344 | 243/243 | 2098/2101 | 0.999572 | 2344/2344 | 105 | 22 |
+| group_seed123 | 2430/2433 | 261/261 | 2169/2172 | 0.999586 | 2433/2433 | 103 | 23 |
+| group_seed2026 | 2400/2402 | 214/215 | 2186/2187 | 0.996607 | 2402/2402 | 104 | 22 |
+| row_seed42 | 2445/2445 | 234/234 | 2211/2211 | 1.000000 | 2445/2445 | 103 | 23 |
+
+- 반복 진단 유형: tonnage_favored_truth_lost, name_similarity_favored_wrong, other_rank_failure, near_miss_runner_up_same_name, near_miss_runner_up_number_mismatch, near_miss_query_tonnage_missing, near_miss_runner_up_closer_tonnage; 분할 특이 유형: query_tonnage_missing, near_miss_override_applied.
+
+| 회차 | 설정 | 결과 | 평균 Δ가중 | 분할별 Δ가중 | 새로 맞힘/틀림 | 동작 검사 | 재학습 |
+|---:|---|---|---:|---|---:|---|---|
+| 1 | `ranker_family__catboost_v1_cpu` | regressed | -0.000070 | -0.000143, +0.000000, +0.000000, -0.000136 | 1/3 | 통과 | 예 |
+
+- 랭커 교체의 오류 상보성(조회표 후처리 적용 후):
+
+| 분할 | 둘 다 정답 | 기준만 정답 | 대안만 정답 | 둘 다 오답 | 예측 불일치 |
+|---|---:|---:|---:|---:|---:|
+| group_seed42 | 2340 | 1 | 0 | 3 | 1 |
+| group_seed123 | 2429 | 1 | 1 | 2 | 2 |
+| group_seed2026 | 2400 | 0 | 0 | 2 | 0 |
+| row_seed42 | 2444 | 1 | 0 | 0 | 1 |
+
+- 학습 행렬·검증 후보·검증 특징 해시를 기준과 대조했다. CatBoost 중요도(PredictionValuesChange)는 LightGBM gain과 직접 비교하지 않는다. JSON의 oracle 정확도는 정답을 사용하는 진단 상한이며 실제 예측이나 앙상블 성능이 아니다.
+- 남은 예산: 계획 회차 0회 (결정적 계획, LLM 미사용), 학습 실험 0회.
+- 개선 판정 규칙(사전 고정, v11-improvement-1): 모든 분할에서 한글·비한글 정확도와 가중 원점수가 하락하지 않고, 평균 가중 원점수 변화 >= 0.0005, 개선 분할 >= 2개. 결과는 탐색용이며 독립 일반화 성능이나 제출 승격 근거가 아니다. 제출 ZIP·제출 코드·리더보드는 변경하지 않았다.
+- 재현 기록: `experiments/results/agent_v11_improve_20261019_072054_425152/summary.json` (행 ID 포함 사례 파일은 `local_only/`, Git 제외).
+
+- CatBoost 절대 점수 보충(모든 분할은 재사용·과거 노출, 분할 간 중복 있음):
+
+| 분할 | 전체 | 한글 | 비한글 | 가중 원점수 |
+|---|---:|---:|---:|---:|
+| group_seed42 | 2340/2344 | 243/243 | 2097/2101 | 0.999429 |
+| group_seed123 | 2430/2433 | 261/261 | 2169/2172 | 0.999586 |
+| group_seed2026 | 2400/2402 | 214/215 | 2186/2187 | 0.996607 |
+| row_seed42 | 2444/2445 | 234/234 | 2210/2211 | 0.999864 |
+
+- 보충 해석: 새로 맞힘/틀림은 분할별 합계 1/3이며 고유 행은 1/2다. seed123의 `other_rank_failure` 1건을 고쳤지만 `same_name_collision` 오류 2회와 `tonnage_favored_truth_lost` 1회가 새로 생겼다. 분류는 진단용 휴리스틱이며 원인 입증이 아니다. 이번 고정 CatBoost 단독 구성은 미채택하고 기준 v11을 유지한다. 앙상블은 실행하지 않았으며 oracle은 두 모델 top-1 중 고르는 진단 값으로만 해석한다.
+- 동일 입력 확인: 네 분할 모두 학습 행렬(X/y/group)·검증 후보·특징 해시가 기준과 같고, 원본 입력·작업자 코드 해시도 일치했다. 네 기준 모델은 앞선 실행과 해시가 같았다. CatBoost 모델 4개를 다시 로드해 600개 트리·특징 이름·CBM 해시를 확인했다. 표본 행 독립성 검사는 통과했지만 전수 검사는 아니다.
+- 비용·구현 확인: 특징 생성 포함 학습 합계는 LightGBM 415.6초·CatBoost 1396.9초, 검증 예측 구간 합계는 89.8초·88.1초였다(모델 로딩·조회표 준비 제외, 로컬 참고값). 개발 환경 34개 검사 중 33개 통과·native 검사 1개는 건너뛰고, 대회용 환경에서 관련 4개 검사를 실행해 실제 CatBoost 학습·저장·재로딩이 통과했다. 기존 LightGBM 설정의 fingerprint는 보존하고 새 랭커 구성만 별도로 식별한다. 모델별 중요도 정의가 달라 직접 차감하지 않았다.
+- 보존: 소스 스냅샷 9개와 보관 ZIP 10개 해시가 종료 시 같았다. 상세 확인은 실행 폴더의 `pre_run_intent.json`, `implementation_checks.json`, `completion_verification.json`에 있다. README와 인계 문서를 실제 결과에 맞췄고, 제출 코드·ZIP·리더보드는 변경하지 않았다.
+
+### 후속 중단 실행과 MLP OOF 상태 확인 (2026-10-19)
+
+- 현재 체크아웃의 `agent_v11_improve_20261019_093455_080a43`는 감사 4개·기준 진단 4개와 `number_features=no_asymmetry` 비교 3개(group seed42/123/2026)까지만 있다. `row_seed42` 비교, `summary.json`, `completion_verification.json`이 없고 실행 중인 Python 프로세스도 관측되지 않았다. **미완료**이며 이미 계산된 결과를 최종 판정으로 취급하지 않는다. 빈 폴더 3개(`090641_acd069`, `092149_2dd840`, `093313_0d9d7f`)도 보존했다.
+- 위 실행의 group seed42 기준은 전체 2,340/2,344, 한글 243/243, 비한글 2,097/2,101, 가중 원점수 0.999428843407901이었다. 과거 완료 실행의 2,341/2,344와 1행 다르다. 원인은 미확인이다. 같은 분할의 1행 차이를 근거로 모델 우열을 확정하지 않는다.
+- MLP 실행 ID `agent_v11_mlp_oof_20261019_085834_a01e14`와 고정 분할 `agent_v11_mlp_listwise_group5_seed20261019.json`은 이 체크아웃에서 발견되지 않았다. (정정: 고정 분할 파일은 이후 복구됐다. 아래 "원본 CPU 분할 복구" 항목을 따른다. 실행 산출물은 여전히 없다.) fold 0~3 결과나 fold 4 학습 상태를 여기서 검증할 수 없어 **MLP OOF 미완료**로 둔다. 별도 실행의 수치나 완료 여부를 추정해 옮기지 않는다.
+- `agent/retrain_runtime.py`의 MLP 동작 검사 분기가 실제 설정값과 달라 검사 0개로 통과하던 버그를 수정했다. 알 수 없는 랭커 값도 명시적으로 실패하게 했다. 수정 전 MLP의 `behavior_check_passed`와 완료 검증 표시는 무효이며, 해당 검사와 전체 OOF는 새 근거로 다시 확인해야 한다. 대회용 Python 3.11에서 MLP·OOF 관련 unittest 14개 중 13개 통과, 고정 분할 파일이 필요한 1개는 건너뛰었다.
+- 이 중단 실행은 기록 단계에 도달하지 않아 `LOG.md`에 자동 추가한 항목이 없다. 기존 자동 기록은 삭제하지 않고 이 상태 메모를 별도 항목으로 남긴다. 나중에 완료 기록이 생기면 실행 ID로 구분하며 기존 항목을 덮어쓰지 않는다. 기존 결과 폴더·제출 ZIP·제출 코드는 수정하지 않았고 리더보드 제출도 하지 않았다.
+
+### MLP GPU 실행 경로 준비 (2026-10-19, 성능 실험 미실행)
+
+- 기존 CPU MLP 설정·분할과 구분되는 `mlp_listwise_v1_cuda`를 추가했다. MLP의 학습 모델·특징/정답 텐서·배치 인덱스·추론 입력을 CUDA로 옮기고, 예측 결과만 CPU NumPy로 돌린다. CUDA 지원 PyTorch나 사용 가능한 GPU가 없으면 결과 폴더 생성 전에 실패한다. 기준 v11 LightGBM은 기존 CPU 경로다.
+- `experiments/splits/agent_v11_mlp_listwise_cuda_group5_seed20261019.json`에 공식 train 12,222행·target 그룹 5,851개를 5-fold로 배정했다(현재 SHA-256 `2e001e999aaf2acdfcb8a1852ff873408eea776dc0911bd8efdad2e8dca6e01f`). **CPU fold 0~3 결과가 사용자에게 보고된 뒤** 만든 프로토콜이다. (정정: 이 파일의 fold는 실제로는 원본 CPU 파일과 달랐고, 해당 파일은 폐기했다. 아래 "원본 CPU 분할 복구" 항목을 따른다.) CUDA 실행 결과를 보기 전 파일을 고정했지만 독립적인 사전 고정 성능 검증으로 주장하지 않는다. CPU OOF를 주 분석으로 지정하고 CUDA는 보조 장치 확인으로만 사용하며, 둘 다 실행한 뒤 점수가 좋은 장치를 고르지 않는다. 기존 CPU 분할·실행 파일은 덮어쓰지 않았다. GPU 실행 명령은 `.\.venv_competition_py311\Scripts\python.exe scripts\run_v11_mlp_oof_experiment.py --gpu`이며 별도 실행 ID를 만든다.
+- 이 PC의 `.venv_competition_py311`은 PyTorch `2.14.1+cpu`, `torch.cuda.is_available() == False`여서 GPU 학습·실제 CUDA 예측은 확인하지 못했다. 관련 unittest 19개 중 18개 통과, 기존 CPU 고정 분할이 필요한 1개는 건너뛰었다. 기존 개선·CatBoost 관련 23개도 통과했다. GPU fold 0의 공식 데이터·target 그룹 분리, GPU 부재 시 조기 실패, GPU 설정이 CPU로 조용히 전환되지 않는지, CPU 모델을 GPU 모델로 잘못 통과시키지 않는지 검사했다. OOF 점수와 실행 시간은 아직 없다.
+
+### Claude 검토 후 프로토콜·작업자·계획 수정 (2026-10-19)
+
+- CUDA 사전 검사는 러너 Python이 아니라 실제 학습 작업자 `.venv_competition_py311/Scripts/python.exe`에서 수행한다. 로컬 작업자 probe는 `cuda_available=false`, PyTorch `2.14.1+cpu`를 반환했고 결과 폴더는 생성하지 않았다. 실제 CUDA 학습은 미실행이다.
+- 개선 에이전트의 재사용 4분할에서는 CPU·CUDA MLP를 LLM 허용 목록과 결정적 계획에서 제외하고, 직접 지정도 실행 폴더 생성 전에 거부한다. MLP는 고정 5-fold OOF 용도로만 남긴다.
+- Git 제외 로컬 원장 `experiments/results/agent_improvement_ledger.json`이 비어 있어 LOG에서 확인되는 완료된 단일 변경 6개를 `documented_completed`로 복원했다. 기존 기록·자동 LOG 항목은 지우지 않고 실행 ID별 상태 기록을 유지한다. 복원 항목은 중복 차단에 포함하지만 새 실험 결과나 수치를 만들어 넣지 않았다. Python 3.11 검토 환경 패키지 목록은 실제 `agent/team_v11/requirements-agent-py311.txt`에 있다.
+- 대회용 Python 3.11에서 MLP·OOF·개선 에이전트 회귀 검사 41개 중 40개 통과, 현재 없는 CPU 고정 분할이 필요한 1개 건너뜀. 작업자 CUDA probe는 실제로 `cuda_available=false`, `torch_version=2.14.1+cpu`, `cuda_runtime=null`을 반환해 실행을 거부했다. 로컬 원장 6개 fingerprint가 현재 설정 코드와 모두 일치했고 `git diff --check`도 통과했다. GPU 성능 실험, 리더보드 제출은 수행하지 않았다.
+
+### 고정 분할 수정 이력·CPU 주 분석 근거·GPU 기록 계획 (2026-10-19)
+
+- **CUDA 고정 분할 파일의 직접 수정 이력(복원)**: `experiments/splits/agent_v11_mlp_listwise_cuda_group5_seed20261019.json`은 `scripts/freeze_v11_mlp_oof_split.py --gpu`로 생성한 뒤 두 번 직접 수정됐다. 1회차는 `experiment` 문구를 `pairwise`에서 `listwise`로 고쳤고, 2회차는 `analysis_role`·`prior_cpu_partial_results_reported_before_cuda_freeze`·`selection_policy` 메타데이터 3개를 추가했다. 수정 전 해시는 세션 기록상 `ef7a6f17…`(앞 8자만 전달받았고 이 체크아웃에서 원본 파일을 확인하지 못했다), 수정 후 현재 해시는 `2e001e999aaf2acdfcb8a1852ff873408eea776dc0911bd8efdad2e8dca6e01f`이다.
+- 위 수정이 메타데이터에만 적용됐다는 점은 **재계산으로 확인했다**: 새로 추가한 `--compare-to`로 현재 환경에서 같은 seed로 분할을 다시 만든 fold digest가 파일의 fold digest와 같았다(둘 다 `716d18cfa359a215f0c8453489f804e555d2d01490f0cba8f72864b3e0089501`). CUDA 결과가 아직 없으므로 이 수정에 결과 기반 선택 편향은 없다. 다만 freeze가 덮어쓰기를 거부하도록 만든 취지와 맞지 않으므로, 앞으로 고정 파일을 고칠 때는 새 파일을 만들거나 이 항목처럼 이전·현재 해시와 fold 불변 여부를 함께 남긴다.
+- **주 분석인 CPU OOF의 사전 고정 근거 없음**(이후 해소): fold 0~3을 실행한 원본 CPU 분할 파일 `agent_v11_mlp_listwise_group5_seed20261019.json`은 당시 이 PC에 없었다. 이후 복구됐으므로 아래 "원본 CPU 분할 복구" 항목을 따르고, `--refrozen-after-exposure`는 원본을 못 구하는 경우에만 쓴다. 지금 freeze를 실행하면 fold 0~3 결과가 보고된 뒤 만드는 파일이므로 사전 고정이 아니다. 이를 메타데이터에 남기도록 `--refrozen-after-exposure`를 추가했다. 이 플래그를 쓰면 `analysis_role`이 `primary_cpu_oof_refrozen_after_exposure`, `refrozen_after_partial_results_seen`·`prior_partial_results_reported_before_freeze`가 true가 되고 `selection_policy`에 탐색 결과임이 적힌다. 실행기는 이 역할도 CPU 주 분석으로 받아들이지만, 역할·노출 표시를 `pre_run_intent.json`과 `summary.json`에 그대로 기록한다. 가능하면 원본 환경에서 원본 CPU 분할 파일을 가져와 해시와 `--compare-to` fold digest를 먼저 대조한다.
+- 분할 생성 환경을 구분할 수 있도록 freeze가 `environment`(python·numpy·pandas·scikit-learn 버전)를 파일에 남기도록 했다. 현재 환경은 Python 3.11.15, numpy 1.26.4, pandas 2.0.3, scikit-learn 1.9.1이다. 기존 CUDA 파일에는 이 키가 없어 원본 환경 버전은 미확인이다.
+- **GPU 결정성·행 독립성은 여전히 미검증**이다. 첫 GPU 실행 때 기록할 항목: 같은 fold를 같은 설정으로 두 번 학습한 모델 SHA-256과 OOF 점수 일치 여부, 추론 배치 크기를 바꿨을 때의 점수 일치 여부, 실행 폴더의 fold별 `checks.row_independence`(작업자가 표본으로 수행하는 검사이며 전수 검사가 아니다). 이 세 가지가 기록되기 전에는 CUDA 결과를 장치 확인 이상으로 쓰지 않는다. 덧붙여 CLAUDE.md 5절이 가리키는 `scripts/check_row_independence.py`는 현재 0바이트 빈 파일이므로 독립 검증 수단으로 쓸 수 없다. 전수 검사가 필요하면 이 스크립트를 먼저 구현해야 한다.
+- **(이번 수정) torch import 순서 결함**: 이 환경에서 `numpy 1.26.4`·`pandas 2.0.3`를 먼저 불러온 뒤 `torch 2.14.1+cpu`를 불러오면 `OSError: [WinError 1114] ... c10.dll`로 실패한다. 재현: `python -c "import numpy,pandas,torch"`는 실패하고 `python -c "import torch,numpy,pandas"`는 성공한다. 학습 작업자 `scripts/v11_improvement_worker.py`가 numpy·pandas를 먼저 불러오므로, 수정 전에는 MLP fold 학습이 CPU·CUDA 모두 이 오류로 중단된다(확인: 수정 전 `import scripts.v11_improvement_worker` 후 `import torch`가 실패). 작업자와 `agent/retrain_runtime.py`, `tests/__init__.py`에서 torch를 numpy·pandas보다 먼저 불러오도록 고쳤고, 작업자 프로세스에서 torch가 실제로 로드되는지 확인하는 회귀 검사를 추가했다. torch가 없는 환경에서는 preload를 건너뛰므로 비-MLP 설정 실행은 영향을 받지 않는다. sklearn·scipy를 먼저 불러오면 우연히 성공하기 때문에, 이전 실행 환경에서는 이 결함이 드러나지 않았을 수 있다.
+- 검사 결과: 대회용 Python 3.11에서 `test_mlp_oof_protocol`·`test_mlp_ranker_experiment`·`test_improvement_agent`·`test_catboost_ranker_experiment`·`test_agent_expanded_search` 52개 중 51개 통과, 당시 원본 CPU 고정 분할 파일이 없어 1개 건너뜀(복구 후에는 이 검사도 실행된다). 수정 전에는 이 묶음을 한 프로세스에서 실행할 때 7개가 위 DLL 오류로 실패했다. `test_exp014_candidate_config`·`test_exp014_validation`·`test_exp022_package`의 실패는 이번 변경과 무관한 기존 실패다(변경을 stash한 상태에서도 같이 실패).
+- 이 항목에서는 성능 실험·GPU 학습·리더보드 제출을 하지 않았다. 기존 결과 폴더와 고정 분할 파일은 수정하지 않았다(이번에 덧붙인 것은 코드·문서·새 테스트뿐이다).
+
+### 원본 CPU 분할 복구·CUDA 프로토콜 재생성 (2026-10-19)
+
+- **원본 CPU 고정 분할 파일이 이 체크아웃에 복구됐다**: `experiments/splits/agent_v11_mlp_listwise_group5_seed20261019.json`, SHA-256 `04d92f91874aae3340cb530eb2ca3c53ee1d6b68a94aa0e23a523a3a7b4e2292`, fold digest `e4aa0752ee1c0548fb1ba166a924b17f2d77cc237b0f784f565d09e0a26788dc`, `protocol_version` `v11-mlp-oof-1`, 공식 train 12,222행·target 그룹 5,851개·5 fold. 출처는 사용자가 원래 실행 환경에서 이 체크아웃으로 복원한 것이다(파일 mtime 08:41이 실행 ID `a01e14`의 08:58:34보다 앞서지만, 복사 과정에서 mtime이 보존됐다는 보장은 없으므로 사전 고정의 결정적 증거로 쓰지 않는다). 이 파일의 `experiment` 라벨은 `pairwise reranker`로 적혀 있는데 코드의 손실은 listwise이므로 라벨이 부정확하다. 파일은 수정하지 않고 그대로 쓴다.
+- **처음 만든 CUDA 분할 파일은 폐기했다.** 그 파일(SHA-256 `2e001e999aaf2acdfcb8a1852ff873408eea776dc0911bd8efdad2e8dca6e01f`)은 이 환경에서 같은 seed로 fold를 **재계산**한 결과였고, fold digest가 `716d18cfa359a215f0c8453489f804e555d2d01490f0cba8f72864b3e0089501`로 원본 CPU 파일의 `e4aa0752…`와 **달랐다**. 즉 앞선 기록의 "CPU와 같은 seed·fold"는 사실이 아니었다. 같은 seed·같은 공식 입력이어도 분할을 만든 환경(scikit-learn 버전 등)이 다르면 fold가 달라진다는 뜻이다. 삭제하지 않고 `experiments/splits/discarded_agent_v11_mlp_listwise_cuda_group5_seed20261019_2e001e99.json`으로 보존했다.
+- **새 CUDA 프로토콜은 원본 CPU fold를 그대로 복사해 만들었다.** `scripts/freeze_v11_mlp_oof_split.py --gpu --from-cpu-split <CPU 파일>`을 추가했다. 이 모드는 fold를 재계산하지 않고 원본의 `folds`를 그대로 옮기며, 원본의 프로토콜 버전·공식 데이터 해시를 먼저 검증하고, 옮긴 뒤 fold digest가 원본과 같은지 다시 확인한 다음에만 파일을 쓴다. 새 파일 SHA-256은 `d77020281e52a5913cc584ead1cc9fb6e52c2c746381bf900f71c93bc322c43f`, fold digest는 원본과 같은 `e4aa0752…`이며 `folds`는 바이트 단위로 동일하다. `derived_from`(원본 경로·해시·fold digest·프로토콜·라벨), `folds_copied_verbatim_from_cpu_protocol: true`, `environment`를 함께 기록한다. `acceptance_gates`도 원본과 동일하다. 장치·프로토콜 버전·`mlp` 설명·`analysis_role`만 CUDA용으로 바꾼다.
+- 확인: 작업자가 `mlp_cuda_oof_fold0`을 불러 12,222행·target 그룹 겹침 0·검증 행 전부 미노출 target·catalog 78,595행을 통과했고, `mlp_oof_fold0`과 검증 `sample_id` 순서까지 동일했다.
+- **fold는 같아졌지만 CUDA가 독립적인 사전 고정 평가가 되는 것은 아니다.** CPU fold 0~3 결과가 보고된 뒤 만든 프로토콜이므로 CPU OOF가 주 분석, CUDA는 보조 장치 확인이라는 지정은 그대로 유지한다. 반대로 **CPU 프로토콜 자체는 복구된 사전 고정 파일을 쓰므로 `--refrozen-after-exposure`가 필요하지 않다**(앞 항목에서 추가한 이 플래그는 원본을 끝내 못 구하는 경우에만 쓴다).
+- **`a01e14`와의 `split_sha256` 대조는 불가능하다.** 실행 폴더가 이 체크아웃·상위 경로 어디에도 없고, 어떤 문서에도 그 실행의 `split_sha256`이 기록돼 있지 않다. 대신 중단된 새 CPU 실행 `agent_v11_mlp_oof_20261019_115321_f19d80`의 `pre_run_intent.json`이 `split_sha256` `04d92f91874aae3340cb530eb2ca3c53ee1d6b68a94aa0e23a523a3a7b4e2292`를 기록해, 복구 파일이 러너의 검증(공식 데이터 해시·프로토콜 버전·fold 구조)을 통과한다는 점만 확인된다. 이는 `a01e14`가 같은 파일을 썼다는 증거가 아니다.
+- 위 `f19d80` 실행은 **미완료**다. `pre_run_intent.json`과 `audit_mlp_oof_fold0.json`만 있고 fold 0 학습 산출물·`summary.json`이 없으며 실행 중인 Python 프로세스도 없다. 폴더는 보존했고 부분 결과를 판정에 쓰지 않는다. (이 실행의 intent는 `analysis_role: primary_cpu_oof`, `prior_partial_results_reported_before_freeze: false`, `refrozen_after_partial_results_seen: false`를 기록했다.)
+- 문서 정정: `CLAUDE.md` 9절, `README.md` 현재 상태, `GPT.md` 13절, `dev_agent.md` 14절, 이 `LOG.md`의 "같은 seed·fold"·"원본 CPU 파일 없음" 표현을 위 사실에 맞게 고쳤다. 제출 ZIP·제출 코드는 변경하지 않았고 리더보드 제출도 하지 않았다.
+
+### 평가·리더보드 운영 변경과 점수 재기록 (2026-10-19)
+
+- **대회 공지(사용자 전달):** Public Score = 기존 평가 데이터 3,000건을 포함한 평가 대상 일부, Private Score = Public 평가 대상을 포함한 전체 채점 대상이며 예선 최종 평가에 사용된다. 학습 데이터·선박 카탈로그·제출 형식·평가 산식은 변경되지 않았다. 리더보드는 초기화됐다.
+- 추론 제한 20분 → 30분, 일일 제출 3회 → 5회, 패키지 설치 제한 10분 유지. 추론 코드는 행 수와 ID를 고정하지 않고 서버의 `data/test.csv` 전체를 읽어 예측해야 한다.
+- 최종 제출물은 1개를 선택하고, 그 제출물의 Private Score와 코드 검증 결과로 본선 진출팀이 정해진다. 최종 선택 후 다시 제출하면 최종 선택이 Public 최고점 제출물로 자동 변경된다. 11월 2일(월) 10:00 이후에는 선택·수정할 수 없다.
+- **이전 리더보드 점수 삭제:** 초기화 이전 점수는 평가 대상이 달라 현재 점수와 비교할 수 없으므로, 사용자 요청에 따라 `CLAUDE.md`·`GPT.md`·`README.md`·`dev_agent.md`·`agent/team_v11/README.md`와 이 LOG의 과거 항목에서 삭제했다. 로컬 검증 점수, 제출 ZIP 파일명·SHA-256, 실험 설정은 유지했다. 삭제 전 문서 사본은 작업 세션의 임시 폴더에만 있고 저장소에는 넣지 않았다.
+- **초기화 후 첫 기록:** `submissions/team_v11_merged.zip`(로컬 SHA-256 `33dc878b5f4987011eb217f85527d960630225bd80c5d7c2ab60e64448420ab2`) 사용자 보고 Public **0.88**. 리더보드 화면·업로드 파일 해시·언어별 점수는 직접 확인하지 않았다.
+- 같은 v11 기준선의 로컬 5-fold 선박 그룹 OOF 가중 점수는 약 0.9968이다(`agent_v11_mlp_oof_20261019_120302_49fae2`). 새 Public과 차이가 커서 로컬 검증이 새 평가 대상을 대표하지 못한다고 본다(추정, test 정답 없음).
+
+### v11 스트레스 OOF 프로토콜 사전 고정 (2026-10-19, 실행 전)
+
+- 파일: `experiments/protocols/v11_stress_oof_v1.json`(`v11-stress-oof-1`). 스트레스 예측을 하기 전에 고정했으며, SHA-256은 아래 해시 기록 줄에 남긴다.
+- 목적: 새 Public 0.88과 로컬 5-fold 그룹 OOF(가중 약 0.9968)의 차이를 설명할 입력 조건을 찾는다. 검증 입력에서만 call_sign 제거·충돌, 톤수 결측·잡음·교환, 국적·선종 결측, 이름 잡음 5종, 혼합 시나리오를 결정적으로 적용한다. 재학습은 하지 않고 `agent_v11_mlp_oof_20261019_120302_49fae2`의 fold별 기준 LightGBM 모델과 원본 CPU 분할(`04d92f91…`)을 재사용한다.
+- 관측한 train 특성: call_sign 결측 0%, 한 call_sign이 여러 선박에 쓰인 경우 0건, 한글 행의 톤수 결측 0%(비한글 7.19%), 선박당 이름 수 평균 1.001. v11은 call_sign을 랭커 특징이 아니라 train 조회 override로만 쓴다.
+- 게이트: G0 깨끗한 재현(5 fold의 후보·특징 해시와 12,222행 최종 예측이 저장값과 일치해야 시작), G1 시나리오별 변경 행 감사, G2 표본 행 독립성, G3 C1이 예측을 바꾸지 않는지 확인.
+- 결과는 탐색용 민감도 순위이며 리더보드 추정치나 모델 선택 근거가 아니다. 결과를 본 뒤 시나리오나 강도를 바꾸려면 새 프로토콜 버전이 필요하다. 아직 구현·실행하지 않았다.
+- 고정 시점 SHA-256: `4fc3f8ba3fead033185470caf3b86452b32eb13e4db3df2515df22b3f11fc86a`
+
+### v11 스트레스 OOF 구현 (2026-10-19, 결과 없음 / 미실행)
+
+- 프로토콜 파일 해시를 재확인했다: `4fc3f8ba3fead033185470caf3b86452b32eb13e4db3df2515df22b3f11fc86a`로 고정 기록과 같다. 프로토콜 파일은 수정하지 않았다. `frozen_inputs`의 11개 해시(train.csv, vessel_catalog.csv, 분할 파일, source run `summary.json`, fold 0~4의 모델 파일과 깨끗한 case 파일)를 모두 대조해 전부 일치했다.
+- 새 파일만 추가했고 **기존 파일은 하나도 바꾸지 않았다**: `agent/stress_perturbations.py`(결정적 섭동 순수 함수), `scripts/run_v11_stress_oof.py`(실행기), `tests/test_stress_perturbations.py`(회귀 검사). `scripts/v11_improvement_worker.py`의 `load_split`·`metrics`·`prediction_input_hashes`와 `agent/retrain_runtime.py`의 `ReusedBooster`·`v11_globals`·`resources`·`predict_details`, `agent/error_diagnostics.py`의 `diagnose_rows`를 그대로 가져다 쓴다. 재학습은 하지 않는다.
+- 섭동은 `(protocol_version, scenario_id, sample_id, 그 행의 입력 열)`만의 함수다. 전역 RNG를 쓰지 않고 `target_vessel_id`가 입력에 있으면 즉시 실패한다. `C2`만 fold의 학습 call_sign 표를 추가 인자로 받는다. 정답은 한 시나리오의 모든 예측이 끝난 뒤 평가 단계에서만 결합한다.
+- **프로토콜 본문이 열어 둔 두 지점을 실행 전에 고정해 기록한다**(결과를 보기 전 결정이며, 코드의 `SALTS`·`READINGS`와 실행 폴더의 `pre_run_intent.json`에 같은 값이 남는다):
+  1. 행 선택 salt — 프로토콜은 `u < rate`만 명시하고 선택용 salt 이름을 주지 않으므로 `select`를 쓴다(`M1`은 구성요소별 `select:C1`·`select:T1`·`select:F1`·`select:name`).
+  2. `N1` 한글 분리 위치 — "insert one space after syllable index floor(len/2)"를 문자 오프셋 `len // 2`에 삽입으로 적용한다. 명시된 적용 조건(`len >= 2`)에서 항상 내부 분리가 생기는 쪽의 해석이다.
+  - 그 밖에 `N2`의 편집 위치는 salt `pos`로 고르고, 뽑힌 연산을 적용할 위치가 없으면 대체 연산을 쓰지 않고 그 행을 그대로 둔다(이 `*_unavailable` 분기는 실제 실행에서 0건이었다 — 아래 정정 항목 참조). `M1`의 이름 연산은 선택된 `N1`/`N2`/`N3`의 자기 `scenario_id`로 내부 salt를 만든다. 어떤 시나리오·비율·임계값도 바꾸지 않았다.
+- 게이트 구현: G0은 fold별 `candidates_sha256`·`features_sha256`와 저장된 깨끗한 case의 `final_pred_id`를 12,222행 전부 대조하고, 한 fold라도 틀리면 `g0_clean_replay.json`·`completion_verification.json`을 남기고 스트레스 시나리오를 **하나도** 실행하지 않는다. G1은 시나리오·fold별 규칙 적합 행·실제 변경 행·열별 변경 수를 기록하고 변경 0행은 `not_applicable`로 적는다. G2는 한글·비한글을 포함한 **5행 이상**에서 역순 부분집합·단독 예측 일치를 확인한다(기존 `independence_check`는 중복 제거 때문에 4행까지 줄어들 수 있어 실행기 안에 5행 이상 보장 검사를 따로 뒀다. 기존 작업자 코드는 바꾸지 않았다). G3은 C1의 예측 변경 수가 0인지 기록한다.
+- 평가 그룹(한글/비한글)은 섭동 전 원본 `vessel_name`으로 고정해 S0과 같은 행끼리 대응 비교가 되게 했고, 섭동 후 이름의 한글 여부가 바뀐 행 수를 `korean_indicator_changed_rows`로 함께 기록한다.
+- 구현 중 `scripts/run_v11_stress_oof.py`의 G1 게이트 집계에서 리스트 컴프리헨션 닫는 괄호가 빠져 모듈 import가 실패했다. 구문만 고쳤고 시나리오·비율·임계값은 바꾸지 않았다.
+- 검사 결과(대회용 Python 3.11): `tests/test_stress_perturbations.py` **26개 전부 통과**. 확인 항목은 프로토콜 파일 해시, `u()`가 프로토콜 공식과 일치, 14개 시나리오 전부의 같은 입력→같은 출력, 단독·배치·역순 배치에서 행별 결과 동일, 정답 열이 입력에 있으면 거부, 제거값이 NaN으로 기록, N2(4자 이상)·N4(정수 토큰)·N5(2토큰 이상)·T2·T3의 적격성과 `not_applicable` 처리, N2가 정확히 한 번 편집하고 숫자를 건드리지 않음, C2가 정렬된 학습 표에서 고르고 그 행의 call_sign이 될 수 없음·약 10% 선택, M1 구성요소별 비율(0.30/0.20/0.20/0.30), G0에서 한 행만 틀려도·후보 해시만 달라도 게이트 실패. 기존 묶음과 함께 돌린 **79개도 전부 통과**(건너뜀 0).
+- **G0 깨끗한 재현 통과** (`agent_v11_stress_oof_20261019_134251_3b38c2`, `--g0-only`). 5개 fold 모두 `candidates_sha256`·`features_sha256`가 고정 기록과 같고, 최종 예측이 **12,222/12,222행 일치**했다(fold별 2,444·2,416·2,445·2,466·2,451). fold별 깨끗한 정답 수도 기록값과 같았다(2443/2444, 2412/2416, 2443/2445, 2464/2466, 2447/2451).
+- 재현한 S0 집계: 전체 12,209/12,222(0.9989363), 한글 1,186/1,191(0.9958018), 비한글 11,023/11,031(0.9992748), 가중 원점수 **0.9968437243609549**, 후보 포함률 0.9999182, 평균 후보 105.84. override는 12,222행 모두 `none`으로 한 번도 발동하지 않아 G3의 C1 기대와 일치하는 전제다. 섭동 후 한글 지시자가 바뀐 행은 0이다. 5 fold 검증 예측 합계 209.2초.
+- `reloaded_model_sha256`은 fold별로 `model_file_sha256`과 다르다. LightGBM 부스터 텍스트를 다시 직렬화하면 바이트가 같지 않기 때문이며, 게이트는 **파일 해시**로만 판정하고 재직렬화 해시는 참고 기록으로만 남긴다. 예측·후보·특징 해시가 전부 일치하므로 모델 재사용 자체는 확인됐다.
+- G2는 최소 검사 행 수 5로 통과했다(한글·비한글 포함). 실행 중 소스 해시와 보관 ZIP 해시는 변하지 않았다.
+- 13개 스트레스 시나리오 결과는 아래 별도 항목에 있다. 행 단위 파일은 `local_only/`에만 두고 LLM에 보내거나 커밋하지 않는다.
+- 제출 ZIP·제출 코드는 건드리지 않았고 리더보드 제출도 하지 않았다. 패키지 설치도 없다.
+
+### v11 스트레스 OOF 결과 (2026-10-19, 탐색용 민감도 순위)
+
+- 실행 ID `agent_v11_stress_oof_20261019_134700_8b55cd`, 프로토콜 `v11-stress-oof-1`(SHA-256 `4fc3f8ba…`), 재학습 없음, 리더보드 제출 없음. 아래 수치는 모두 그 실행의 `summary.json`에서 그대로 옮겼다. 공식 train 12,222행(한글 1,191 / 비한글 11,031)을 5-fold 그룹 OOF로 한 번씩 평가한 값이다.
+- 게이트: **G0 통과**(5 fold 후보·특징 해시 일치, 최종 예측 12,222/12,222 일치), **G1** 미적용 시나리오 없음(13개 모두 실제로 행을 바꿨다), **G2 통과**(시나리오·fold마다 한글·비한글 포함 최소 5행에서 역순 부분집합·단독 예측 일치), **G3 통과**(C1 예측 변경 0건). 실행 중 소스 해시와 보관 ZIP 해시는 변하지 않았다. 섭동 후 한글 지시자가 바뀐 행은 전 시나리오 0이다.
+
+| 시나리오 | 전체 | 한글 | 비한글 | 가중 원점수 | Δ vs S0 | 새 오답(한/비) | 새 정답 | 후보 포함률 | 새 오답 주 오류 유형 |
+|---|---|---|---|---:|---:|---|---:|---:|---|
+| `S0_clean_replay` | 12209/12222 | 1186/1191 | 11023/11031 | 0.996843724 | — | — | — | 0.999918 | — |
+| `C2_callsign_collision_10pct` | 10938/12222 | 1068/1191 | 9870/11031 | 0.896133155 | **-0.100710569** | 1271 (118/1153) | 0 | 0.999918 | `override_introduced_error` 1271 |
+| `N5_token_order` | 8879/12222 | 1186/1191 | 7693/11031 | 0.906280765 | **-0.090562959** | 3331 (0/3331) | 1 | **0.902471** | `candidate_missing` 1190, `other_rank_failure` 830, `tonnage_favored_truth_lost` 829, `name_similarity_favored_wrong` 297, `query_tonnage_missing` 178, `override_wrong_and_model_wrong` 7 |
+| `N2_char_edit_one` | 11930/12222 | 1087/1191 | 10843/11031 | 0.933762031 | **-0.063081693** | 280 (99/181) | 1 | 0.999836 | `tonnage_favored_truth_lost` 155, `other_rank_failure` 45, `name_similarity_favored_wrong` 35, `query_tonnage_missing` 32, `number_mismatch` 7, `override_wrong_and_model_wrong` 3, `override_introduced_error` 2, `candidate_missing` 1 |
+| `T1_tonnage_both_missing` | 12149/12222 | 1137/1191 | 11012/11031 | 0.967745239 | -0.029098485 | 60 (49/11) | 0 | 0.998691 | `query_tonnage_missing` 50, `candidate_missing` 10 |
+| `T2_tonnage_noise_20pct` | 12146/12222 | 1143/1191 | 11003/11031 | 0.971026923 | -0.025816802 | 63 (43/20) | 0 | 0.999100 | `other_rank_failure` 38, `tonnage_favored_truth_lost` 19, `candidate_missing` 5, `same_name_collision` 1 |
+| `M1_mixed` | 12153/12222 | 1166/1191 | 10987/11031 | 0.984109837 | -0.012733887 | 56 (20/36) | 0 | 0.999755 | `query_tonnage_missing` 32, `tonnage_favored_truth_lost` 10, `number_mismatch` 5, `other_rank_failure` 4, `name_similarity_favored_wrong` 3, `candidate_missing` 2 |
+| `N1_spacing` | 12165/12222 | 1182/1191 | 10983/11031 | 0.993404915 | -0.003438809 | 44 (4/40) | 0 | 0.999918 | `number_mismatch` 37, `tonnage_favored_truth_lost` 4, `other_rank_failure` 3 |
+| `F2_vessel_type_missing` | 12206/12222 | 1183/1191 | 11023/11031 | 0.995080500 | -0.001763224 | 4 (4/0) | 1 | 0.999918 | `tonnage_favored_truth_lost` 4 |
+| `N3_affix` | 12187/12222 | 1186/1191 | 11001/11031 | 0.996245411 | -0.000598314 | 22 (0/22) | 0 | 0.999918 | `tonnage_favored_truth_lost` 10, `query_tonnage_missing` 6, `other_rank_failure` 4, `name_similarity_favored_wrong` 1, `number_mismatch` 1 |
+| `F1_flag_missing` | 12208/12222 | 1186/1191 | 11022/11031 | 0.996816528 | -0.000027196 | 1 (0/1) | 0 | 0.999918 | `name_similarity_favored_wrong` 1 |
+| `C1_callsign_removed` | 12209/12222 | 1186/1191 | 11023/11031 | 0.996843724 | +0.000000000 | 0 | 0 | 0.999918 | — |
+| `T3_tonnage_swap` | 12209/12222 | 1186/1191 | 11023/11031 | 0.996843724 | +0.000000000 | 0 | 0 | 0.999918 | — |
+| `N4_number_format` | 12209/12222 | 1186/1191 | 11023/11031 | 0.996843724 | +0.000000000 | 0 | 0 | 0.999918 | — |
+
+- 언어별 Δ: C2 한글 −0.0990·비한글 −0.1045 / N5 한글 ±0·비한글 **−0.3019** / N2 한글 **−0.0831**·비한글 −0.0163 / T1 한글 −0.0411·비한글 −0.0010 / T2 한글 −0.0361·비한글 −0.0018 / M1 한글 −0.0168·비한글 −0.0033.
+- 섭동 규모(적격 행 / 실제 변경 행): C2 1,273/1,273, N5 8,957/8,956, N2 12,065/11,942, T1 12,222/11,429, T2 11,429/11,429, F1 12,222/10,207, N1 12,222/10,148, N3 12,222/12,169, M1 12,222/8,085, T3 165/165, N4 493/493, C1·F2 12,222/12,222.
+
+#### 확인된 사실
+
+- **학습 표의 호출부호가 입력에 들어오면 override는 항상 발동해 모델 판단을 덮어쓴다.** C2에서 호출부호를 바꾼 1,273행 **전부**에서 override가 발동했고(`override_counts.callsign` 1,273), 1,271행이 새 오답이 됐다. 오류 유형은 전부 `override_introduced_error`이고 정답은 **1,271행 모두 후보 2~5위 안에 있었다**(`missing` 0, `6_plus` 0). 즉 모델은 맞힐 수 있었는데 override가 덮어썼다. 현재 override에는 모델 점수나 톤수·국적 일치를 보는 조건이 없다.
+- **이름 조회 override도 잡음이 들어간 이름에서 발동한다.** N2에서 `name_lookup` 5건, N5에서 7건이 발동했다(깨끗한 S0에서는 0건). N2의 5건은 `override_introduced_error` 2건 + `override_wrong_and_model_wrong` 3건이고, `override_changed_and_wrong`은 2건이다 — 2행은 이름 조회가 정답을 덮어써 틀리게 만들었다. N5의 7건은 전부 `override_wrong_and_model_wrong`이고 `override_changed_and_wrong`은 0이므로, 모델 top-1과 같은 ID를 가리켜 오답의 원인은 아니었다.
+- **C1은 예측을 하나도 바꾸지 않았다**(12,222행 전부 `call_sign`을 NaN으로). 그룹 분리 OOF에서 override가 원래 0건 발동하므로, 깨끗한 로컬 점수는 override 경로를 **한 번도 검증하지 않는다**. C1과 C2의 대비가 그 사각지대의 크기를 보여준다.
+- **N5만 후보 생성 단계를 깨뜨린다.** 후보 포함률이 0.999918 → 0.902471로 떨어진 유일한 시나리오이고, 새 오답 3,331행 중 1,190행이 `candidate_missing`이다. 나머지 시나리오는 포함률이 0.9987 이상으로 유지되므로 랭킹 실패다.
+- **언어별 비대칭**: T1·T2의 하락은 거의 전부 한글에서 나왔고(한글 −0.0411·−0.0361, 비한글 −0.0010·−0.0018), N2도 한글(−0.0831)이 비한글(−0.0163)보다 5배 컸다. N5는 비한글만(−0.3019) 영향을 받았다(한글은 비적격).
+- **견고하다고 확인된 조건 3개**: C1(호출부호 제거, 12,222행 변경), T3(톤수 교환, 165행 변경), N4(`NO.N` 표기, 493행 변경) 모두 예측 변경 0건이다. 적격 행이 모두 실제로 바뀌었으므로 `not_applicable`이 아니라 진짜 불변이다. T3의 적격 행이 165행뿐인 것은 총톤수와 국제총톤수가 거의 항상 같다는 뜻이다.
+- F1(국적 결측)은 Δ −0.000027, 새 오답 1행으로 사실상 영향이 없다. train의 `flag_name` 결측률은 이미 16.49%다.
+- **시나리오별 섭동 강도가 서로 다르다.** C2는 전체의 10%(1,273행)에만 적용했고, N5는 적격 행 8,957행 전부에, N2는 12,065행 중 11,942행에 적용했다. 따라서 Δ의 절대 크기를 시나리오 간에 직접 비교할 수 없다.
+
+#### 해석 (추정)
+
+- **민감도 순위는 프로토콜이 정한 강도에 좌우된다.** C2가 1위인 것은 섭동 비율 10%에 피해율이 거의 100%(1,271/1,273)여서 Δ가 비율에 정비례한 결과다. 반면 N5는 적격 행 100%에 적용됐다. 비율을 바꾸면 순위가 바뀔 수 있으므로, 이 표는 "같은 강도에서의 비교"가 아니라 "각 조건이 실제로 모델을 깨뜨릴 수 있는지"의 목록으로 읽는다.
+- C2의 1:1 가까운 피해율은 **프로토콜 구성상의 최악 경계**다. 프로토콜 본문대로 그룹 분리 때문에 학습 표의 호출부호는 검증 행의 정답을 가리킬 수 없으므로, 발동한 override는 정의상 항상 틀린다. train에는 여러 선박이 공유하는 호출부호가 0건이다. 따라서 이 수치는 "호출부호가 충돌했을 때의 상한"이며 **test에 충돌이 있다는 증거가 아니다**. 다만 override가 발동 시 모델 판단을 무조건 덮어쓴다는 구조는 섭동과 무관하게 참이다.
+- N5도 공격적인 가정이다(첫 토큰을 끝으로 이동). 실제 test의 표기 차이는 부분적 재배열이나 약칭일 가능성이 높다. 토큰 순서가 바뀌면 후보 자체가 사라지므로 재랭킹으로는 복구할 수 없다는 점은 강도와 무관하다.
+- 한글이 톤수에 민감한 것은 train 한글 행의 톤수 결측이 0%(비한글 7.19%)여서 모델이 한글에서 톤수에 더 의존하도록 학습됐기 때문일 수 있다.
+- F1의 영향이 없는 것은 train에 이미 결측이 16.49% 있어 모델이 결측 자체를 학습했기 때문일 수 있다.
+- M1 혼합(C1 0.30 / T1 0.20 / F1 0.20 / 이름 0.30)의 Δ −0.0127이 구성요소 단독 효과의 단순 합보다 작은 것은 C2 충돌이 빠져 있고 각 구성요소가 일부 행에만 적용되기 때문으로 본다.
+- **스트레스 Δ와 로컬·Public 차이(약 0.117)의 크기를 맞대어 비교하지 않는다.** 섭동 종류와 강도는 임의로 정한 가정이므로 두 수치는 같은 축에 놓을 수 없다. 이 실행이 말해 주는 것은 "어떤 입력 조건이 파이프라인을 깨뜨리는가"이고, test가 그런 조건을 담고 있는지는 알 수 없다.
+
+#### 다음 가설 (이 프로토콜 밖, 각각 새 프로토콜 고정 필요)
+
+1. override 게이트: 호출부호·이름 조회가 발동할 때 모델 점수·톤수·국적·선종 일치를 함께 요구한다. 근거는 C2의 `override_introduced_error` 1,271건과, 이름 조회가 잡음 이름에서 발동해 2행을 틀리게 만든 N2의 `override_changed_and_wrong` 2건이다(호출부호만의 문제가 아니다). 깨끗한 OOF에서는 override가 0건 발동하므로 **비퇴보 게이트가 자동으로 충족될 가능성이 높고**, 가장 안전하게 비교할 수 있는 다음 실험이다.
+2. 후보 생성의 토큰 순서 불변성: 토큰 정렬·부분집합 매칭을 후보 검색에 추가한다. N5의 `candidate_missing` 1,190행이 대상이다.
+3. 학습 단계 이름 잡음 증강(N1/N2/N3 계열)과 한글 톤수 결측 증강. N2의 한글 −0.0831, T1의 한글 −0.0411이 대상이다.
+- 위 수치는 **노출된 재사용 분할의 탐색적 민감도 순위**이며, 리더보드·Private 점수 추정치나 모델 선택 근거가 아니다. 큰 하락은 취약점을 보여주지만 test에 그 섭동이 있다는 뜻이 아니다. 결과를 본 뒤 시나리오·비율·임계값을 바꾸지 않았다.
+- 제출 ZIP·제출 코드는 변경하지 않았고 리더보드 제출도 하지 않았다. 앞선 `--g0-only` 실행 폴더 `agent_v11_stress_oof_20261019_134251_3b38c2`도 보존했다.
+
+#### 실행 검토 후 정정 (2026-10-19)
+
+- 검토에서 게이트 통과·수치 대조가 재확인됐다(14개 시나리오의 정답 수·가중 원점수·Δ·새 오답·적격 행·변경 행이 `summary.json`과 모두 일치). **이 실행은 유효하며 무효 처리나 새 프로토콜 없이 그대로 쓴다.** 프로토콜 파일은 해시가 달라지므로 수정하지 않았다.
+- **N1 분리 위치 — 작성자 확인:** 프로토콜 문구를 0부터 세는 인덱스로 글자 그대로 읽으면 공백이 offset `floor(len/2)+1`에 들어가고, 구현(`len // 2`)은 한 칸 앞이다. 그러나 글자 그대로의 해석은 2글자 이름에서 공백이 끝에 붙어 분리가 일어나지 않아 본문의 적용 조건 `len >= 2`와 충돌한다. 프로토콜 작성자가 "가운데 근처를 이름 안쪽에서 나눈다"가 의도였음을 확인했고, **구현이 작성 의도와 같다**. 영향 범위는 N1의 한글 행과 M1에서 N1을 고른 행뿐이며 N1 전체 Δ는 −0.0034다.
+- **행 선택 salt `select` — 위반 아님:** 프로토콜은 `u < rate`만 정하고 salt 이름을 정하지 않았으므로, 정해지지 않은 값을 채운 것이다. 결과를 보기 전에 `pre_run_intent.json`의 `perturbation_salts`에 기록됐다.
+- **평가 그룹을 원본 이름으로 고정 — 적절함:** 같은 행끼리 S0과 대응 비교하려면 그룹 고정이 필요하다. 공식 산식은 평가 행에 적힌 이름으로 한글 여부를 정하지만, `korean_indicator_changed_rows`가 모든 시나리오에서 0이라 어느 기준을 써도 결과가 같다.
+- **N2에서 바뀌지 않은 123행의 원인 정정:** 앞서 "뽑힌 연산을 적용할 위치가 없었던 행"으로 적은 것은 **틀렸다**. `operation_counts`를 보면 123행은 전부 `n2_transpose_no_change`이고 `*_unavailable` 레이블은 **0건**이다. 즉 위치는 있었고, 같은 글자가 붙은 쌍(예: `LL`)을 맞바꿔 이름이 그대로 남은 경우다. 연산은 실행됐지만 결과가 동일해 변화 없음으로 처리됐다. 프로토콜의 "Exactly one edit" 요구에 비추면 구현의 빈틈이지만, 방향은 N2 민감도를 약 1% **과소평가**하는 보수적 쪽이고 결론에는 영향이 없다. 재실행하지 않는다. 다음 버전(stress-v2)에서는 맞바꿀 쌍 후보에서 같은 글자 쌍을 제외하도록 규칙에 명시한다. 참고로 N2의 연산 분포는 치환 3,715 / 삭제 3,626 / 맞바꿈 3,531 / 한글 음절 삭제 1,048 / 한글 음절 맞바꿈 22 / 변화 없음 123이고, N5는 8,956 적용 + 1행 변화 없음이다.
+- **C2 해석의 사실·추정 재배치:** "override가 가장 취약하다"는 **사실이 아니라 프로토콜 설정값이 만든 순위**이므로 사실 단락에서 뺐다. 사실로 남긴 문장은 "학습 표의 호출부호가 들어오면 override는 항상 발동해 모델 판단을 덮어쓴다(1,273/1,273 발동, 1,271행 새 오답, 정답은 모두 후보 2~5위)"이고, 순위가 비율에 좌우된다는 단서는 해석 단락으로 옮겼다. 스트레스 Δ를 로컬·Public 차이 0.117과 크기 비교하던 문장은 **삭제했다** — 섭동 강도가 임의 가정이라 같은 축에 놓을 수 없다. F1의 "결측을 학습했다"와 M1의 원인 설명도 해석 단락으로 옮겼다.
+- **보강:** 이름 조회 override가 잡음 이름에서 발동한다는 근거(N2 `name_lookup` 5건 중 `override_changed_and_wrong` 2건, N5 7건은 모두 모델 top-1과 동일해 오답 원인 아님)를 사실 단락과 다음 가설 1번에 추가했다. override 문제가 호출부호에 국한되지 않는다는 근거다.
+- 검토에서 확인된 다음 단계 판단은 유지된다: override 안전장치와 후보 생성의 토큰 순서 문제이며, 깨끗한 OOF에서 override가 0건 발동하므로 **override 게이트가 깨끗한 OOF 점수를 떨어뜨리지 않고 비교할 수 있는 가장 안전한 다음 실험**이다.
+
+### v11 override 게이트 프로토콜 사전 고정 (2026-10-19, 실행 전)
+
+- 파일: `experiments/protocols/v11_override_gate_v1.json`(`v11-override-gate-1`), SHA-256 `73d4c464f63d050e8f68dbdadab64e9ac013b3ff2a24f6ef8b968755764735b1`. 게이트 예측을 하기 전에 고정했다.
+- 근거: 스트레스 실행 `agent_v11_stress_oof_20261019_134700_8b55cd`의 C2에서 다른 선박 호출부호가 1,273행 전부에서 override를 발동시켜 1,271행이 새 오답이 됐다(정답은 모두 모델 2~5위). 반대로 row_seed42 분할에서는 override가 1,771행에서 발동했지만 바뀐 답은 0건이었다(모델 단독 2,445/2,445). 깨끗한 로컬 자료에서는 override의 이득이 측정되지 않는다.
+- 정책 4개(임계값 고정): P0 항상 적용(현재 v11), P1 끔, P2 조회 선박이 모델 후보 목록에 있을 때만, P3 조회 선박이 모델 상위 3위 안이고 톤수(gap_best 0.25 초과)·국적·선종(학습 매핑이 있는데 확률 0) 모순이 없을 때만. 모델 점수 마진은 쓰지 않는다(LightGBM 원점수 척도가 행·fold마다 비교 불가).
+- 시나리오: 그룹 OOF 깨끗한 입력(E1, 네 정책이 같아야 함), C2와 새 C3(모델이 이미 2~5위로 본 학습 선박의 호출부호를 넣는 그럴듯한 충돌, 10%)로 피해 H, row_seed42에서 N2·N5·T1로 이름·톤수가 망가졌을 때 호출부호가 구해 주는 이득 B를 잰다.
+- 판정: G0~G3 통과, E1이 P0과 같고 깨끗한 row 분할에서 손실이 없는 정책 중 B − H가 큰 순서. 상위 정책과(상위가 아니면) P1을 **리더보드 진단 후보**로 추천할 뿐, 제출 정책 채택이 아니다. H와 B는 정한 비율·강도에 의존하므로 리더보드 변화 예측치가 아니다.
+- 아직 구현·실행하지 않았다. 결과를 본 뒤 정책·상수·시나리오를 바꾸려면 새 프로토콜 버전이 필요하다.
+
+### v11 override 게이트 구현 (2026-10-19, 결과 없음 / 미실행)
+
+- 프로토콜 해시를 재확인했다: `experiments/protocols/v11_override_gate_v1.json` = `73d4c464f63d050e8f68dbdadab64e9ac013b3ff2a24f6ef8b968755764735b1`, 참조하는 `v11_stress_oof_v1.json` = `4fc3f8ba…`. 두 파일 모두 수정하지 않았다. `frozen_inputs`의 8개 해시(train.csv, vessel_catalog.csv, 스트레스 프로토콜, 스트레스 실행 summary, row 분할 파일, row 모델, row 깨끗한 case, row diagnose)를 전부 대조해 일치했다. 그룹 OOF 5 fold의 모델·case 해시는 실행기가 스트레스 프로토콜에서 읽어 다시 확인한다.
+- **새 파일만 추가했고 기존 파일은 하나도 바꾸지 않았다**: `agent/override_gate.py`(네 정책의 순수 함수), `agent/stress_c3.py`(C3 2패스 섭동), `scripts/run_v11_override_gate.py`(실행기), `tests/test_override_gate.py`(회귀 검사). `agent/stress_perturbations.py`는 손대지 않았으므로 C2·N2·N5·T1 동작은 실행 `agent_v11_stress_oof_20261019_134700_8b55cd`와 같다. 재학습은 없고, 다섯 그룹 fold 모델과 row_seed42 모델을 고정 부스터 텍스트에서 다시 불러 쓴다.
+- 상수는 모듈 상수로 두고 실행 시작 시 프로토콜 JSON 값과 대조해 다르면 즉시 실패한다: `TOP_K = 3`, `MAX_RELATIVE_TONNAGE_GAP = 0.25`. 정책 목록도 프로토콜 키와 대조한다. P3가 읽는 컬럼은 `runtime.FEATURES`의 실제 인덱스로 해석한다 — `gap_best` 20, `flag_prob` 24, `flag_seen` 25, `type_prob` 26, `type_seen` 27.
+- 정책 적용 순서는 v11과 같다: 이름 조회를 먼저 반영하고, 승인된 호출부호 조회가 있으면 그것이 최종이다(호출부호 우선). 두 소스는 같은 규칙으로 **독립적으로** 게이트한다. 차단 사유는 `policy_off`·`not_in_candidates`·`rank_above_top_k`·`tonnage_contradiction`·`flag_contradiction`·`type_contradiction`이고, 모순 검사는 프로토콜 순서(톤수 → 국적 → 선종)로 보고한다. 순위는 v11 argmax와 같은 기준(점수 내림차순, 동점은 catalog 인덱스 오름차순)으로 계산한다.
+- C3는 그 행의 **깨끗한 모델 순위**가 필요해 2패스로 구현했다. 1패스에서 깨끗한 예측으로 주입 계획을 만들고(그 계획으로 G0도 함께 검사), G0 통과 후 2패스에서 주입된 입력을 예측한다. 행 선택은 고정 스트레스 해시를 그대로 쓴다 — 프로토콜 문자열 `v11-stress-oof-1`, salt `select`, 비율 0.10. 적격 후보 중 **가장 앞 순위**(동점은 catalog 인덱스)를 고르고 그 선박에 매핑된 호출부호 중 사전순 최소를 주입한다. 라벨과 다른 검증 행은 읽지 않는다.
+- `scripts/run_v11_override_gate.py`는 모든 사전 검사를 통과한 뒤에만 실행 폴더를 만들고 기존 폴더를 재사용하지 않는다. 시나리오당 `predict_details`를 한 번만 계산하고 네 정책을 후처리로 적용한다. G0(그룹 5 fold 12,222행 + row 2,445행 해시·예측 일치)이 실패하면 게이트 시나리오를 하나도 실행하지 않고, G1(E1에서 네 정책의 행별 예측 해시가 fold마다 동일)이 실패하면 그 시점에 멈춘다. G2는 정책·시나리오마다 한글·비한글 포함 5행 이상에서 역순 부분집합·단독 예측을 네 정책 모두에 대해 비교한다. G3은 시나리오별 적격·변경 행과 C3의 주입 순위 분포를 기록하고, C3 적격 0행은 `not_applicable`로 적는다.
+- 프로토콜이 지정한 `gate_decision`·`apply_policy` 서명에 catalog 인덱스 객체(`id_to_index`)를 인자로 추가했다. 조회된 선박의 순위와 특징 행은 그 매핑 없이는 찾을 수 없고, 프로토콜 본문이 "그 후보의 기존 v11 특징 행에서 읽는다"고 요구하기 때문이다.
+- 결과는 아래 별도 항목에 있다. 행 단위 파일은 `local_only/`에만 두고 LLM에 보내거나 커밋하지 않는다.
+- 제출 코드·제출 ZIP은 건드리지 않았고 새 ZIP도 만들지 않았다. 리더보드 제출·패키지 설치 없음.
+
+### v11 override 게이트 결과 (2026-10-19, 탐색용 정책 비교)
+
+- 실행 ID `agent_v11_override_gate_20261019_153905_34073d`, 프로토콜 `v11-override-gate-1`(SHA-256 `73d4c464…`), 재학습 없음, 리더보드 제출 없음. 아래 수치는 모두 그 실행의 `summary.json`에서 그대로 옮겼다. 선행 `--g0-only` 실행 `agent_v11_override_gate_20261019_152733_af3671`도 보존했다.
+- 검사: `tests/test_override_gate.py` **34개 전부 통과**, 기존 묶음까지 합쳐 **113개 전부 통과**(건너뜀 0).
+- 게이트: **G0 통과**(그룹 5 fold 12,222행 + row_seed42 2,445행 = 14,667/14,667 예측 일치, 후보·특징 해시 전부 일치), **G1 통과**(E1에서 네 정책의 행별 예측이 fold마다 동일, 모두 12,209/12,222), **G2 통과**(19개 검사, 최소 5행, 한글·비한글 포함, 네 정책 모두), **G3** 미적용 시나리오 없음. 실행 중 소스 해시·보관 ZIP 해시 불변. 상수 확인: `top_k=3`, `max_relative_tonnage_gap=0.25`가 프로토콜 JSON과 일치.
+- **네 정책 모두 적격**이다(G0~G3 통과, E1이 P0과 동일, `E3_row_clean`에서 네 정책 모두 2,445/2,445로 손실 0).
+- **단위 주의 (검토에서 정정):** 아래 표의 `적용`·`차단`·`blocked_would_be_correct`는 **결정 수**다(행 × 소스, 한 행에 호출부호·이름 조회 최대 2건). `applied_wrong`·`rescued`·`harm`과 정확도 열은 **행 수**다. 구현에서 전자는 소스 루프 안에서, 후자는 루프 밖에서 집계한다. 깨끗한 row 분할에서 두 조회가 같은 선박을 가리키므로 한 행이 두 번 집계되며, P1의 `blocked_would_be_correct` 3,542 = 1,771 × 2가 그 증거다. 따라서 H·B·net 표는 행 기준이다.
+
+| 시나리오 | 정책 | 전체 | 한글 | 비한글 | 적용(결정) | 차단(결정, 사유) | applied_wrong(행) | blocked_would_be_correct(결정) | rescued(행) | harm(행) |
+|---|---|---|---|---|---:|---|---:|---:|---:|---:|
+| `E1_group_clean` | 네 정책 모두 | 12209/12222 | 1186/1191 | 11023/11031 | 0 | 0 | 0 | 0 | 0 | 0 |
+| `E2_group_C2` | `P0_always` | 10938/12222 | 1068/1191 | 9870/11031 | 1273 | 0 | 1273 | 0 | 0 | **1271** |
+| `E2_group_C2` | `P1_off` | 12209/12222 | 1186/1191 | 11023/11031 | 0 | 1273 (policy_off) | 0 | 0 | 0 | 0 |
+| `E2_group_C2` | `P2_candidate_member` | 12207/12222 | 1185/1191 | 11022/11031 | 2 | 1271 (not_in_candidates) | 2 | 0 | 0 | 2 |
+| `E2_group_C2` | `P3_rank_and_attributes` | 12209/12222 | 1186/1191 | 11023/11031 | 0 | 1271 not_in_candidates + 2 rank | 0 | 0 | 0 | 0 |
+| `E2_group_C3` | `P0_always` | 11407/12222 | 1084/1191 | 10323/11031 | 802 | 0 | 802 | 0 | 0 | **802** |
+| `E2_group_C3` | `P1_off` | 12209/12222 | 1186/1191 | 11023/11031 | 0 | 802 (policy_off) | 0 | 0 | 0 | 0 |
+| `E2_group_C3` | `P2_candidate_member` | 11407/12222 | 1084/1191 | 10323/11031 | 802 | **0** | 802 | 0 | 0 | **802** |
+| `E2_group_C3` | `P3_rank_and_attributes` | 11743/12222 | 1120/1191 | 10623/11031 | 466 | 244 rank + 58 톤수 + 22 국적 + 12 선종 | 466 | 0 | 0 | **466** |
+| `E3_row_clean` | `P0`·`P2` | 2445/2445 | 234/234 | 2211/2211 | 3542 | 0 | 0 | 0 | 0 | 0 |
+| `E3_row_clean` | `P1_off` | 2445/2445 | 234/234 | 2211/2211 | 0 | 3542 (policy_off) | 0 | 3542 | 0 | 0 |
+| `E3_row_clean` | `P3` | 2445/2445 | 234/234 | 2211/2211 | 3524 | 16 국적 + 2 선종 | 0 | 18 | 0 | 0 |
+| `E3_row_N2` | `P0_always` | 2431/2445 | 233/234 | 2198/2211 | 1808 | 0 | 0 | 0 | **38** | 0 |
+| `E3_row_N2` | `P1_off` | 2393/2445 | 218/234 | 2175/2211 | 0 | 1808 | 0 | 1808 | 0 | 0 |
+| `E3_row_N2` | `P2_candidate_member` | 2431/2445 | 233/234 | 2198/2211 | 1808 | 0 | 0 | 0 | **38** | 0 |
+| `E3_row_N2` | `P3_rank_and_attributes` | 2412/2445 | 225/234 | 2187/2211 | 1781 | 18 rank + 8 국적 + 1 선종 | 0 | 27 | **19** | 0 |
+| `E3_row_N5` | `P0_always` | 2230/2445 | 234/234 | 1996/2211 | 2261 | 0 | 0 | 0 | **475** | 0 |
+| `E3_row_N5` | `P1_off` | 1755/2445 | 234/234 | 1521/2211 | 0 | 2261 | 0 | 2259 | 0 | 0 |
+| `E3_row_N5` | `P2_candidate_member` | 2051/2445 | 234/234 | 1817/2211 | 2082 | 179 (not_in_candidates) | 0 | 179 | **296** | 0 |
+| `E3_row_N5` | `P3_rank_and_attributes` | 1956/2445 | 234/234 | 1722/2211 | 1976 | 179 cand + 94 rank + 1 톤수 + 9 국적 + 2 선종 | 0 | 284 | **201** | 0 |
+| `E3_row_T1` | `P0_always` | 2442/2445 | 233/234 | 2209/2211 | 3542 | 0 | 0 | 0 | **9** | 0 |
+| `E3_row_T1` | `P1_off` | 2433/2445 | 224/234 | 2209/2211 | 0 | 3542 | 0 | 3542 | 0 | 0 |
+| `E3_row_T1` | `P2_candidate_member` | 2439/2445 | 230/234 | 2209/2211 | 3536 | 6 (not_in_candidates) | 0 | 6 | **6** | 0 |
+| `E3_row_T1` | `P3_rank_and_attributes` | 2439/2445 | 230/234 | 2209/2211 | 3518 | 6 cand + 16 국적 + 2 선종 | 0 | 24 | **6** | 0 |
+
+| 정책 | H (E2_C2+E2_C3 harm) | B (E3 N2+N5+T1 rescued) | net = B − H | 적격 | 순위 |
+|---|---:|---:|---:|---|---:|
+| `P1_off` | 0 | 0 | **0** | 적격 | 1 |
+| `P3_rank_and_attributes` | 466 | 226 | **−240** | 적격 | 2 |
+| `P2_candidate_member` | 804 | 340 | **−464** | 적격 | 3 |
+| `P0_always` (현재 v11) | 2073 | 522 | **−1551** | 적격 | 4 |
+
+- 판정 규칙이 고른 **권고 진단 대상: `P1_off`** 하나다(최상위가 P1이므로 추가 항목 없음). 이 규칙은 리더보드 진단 대상만 고르며 제출 정책을 채택하지 않는다. **다만 이 규칙 자체가 설계 결함으로 확인됐으므로 위 net 순위와 이 권고는 정책 우열의 근거가 아니다 — 아래 "실행 검토 후 정정"을 먼저 읽는다.**
+
+#### 확인된 사실
+
+- **C2(무작위 충돌)는 약한 공격이다.** P2가 1,273건 중 1,271건을 `not_in_candidates`로 막았고, P3는 1,273건 전부를 막았다(1,271 후보 밖 + 2 rank>3). 프로토콜이 미리 적은 예상대로다.
+- **C3(그럴듯한 충돌)에서 P2는 아무것도 막지 못했다**(802건 중 차단 0). 주입 선박이 정의상 그 행의 후보 안 2~5위에 있으므로 후보 소속 조건이 통과한다. 따라서 후보 소속만으로는 그럴듯한 호출부호 충돌을 전혀 걸러내지 못한다.
+- **C3에서 P3는 802건 중 336건을 막았다**: rank>3 244건(주입 순위 분포 rank2 330 / rank3 228 / rank4 154 / rank5 90 중 4·5위 244건과 정확히 일치), 톤수 모순 58건, 국적 모순 22건, 선종 모순 12건. 남은 466건은 모두 harm이다 — C3에서 적용된 override는 정의상 전부 틀린다.
+- **override가 실제로 이득을 주는 구간이 있다.** `E3_row_N5`에서 P0은 2,230/2,445, P1은 1,755/2,445로 override가 475행을 살렸다. `E3_row_N2`는 38행, `E3_row_T1`은 9행이다. 세 시나리오에서 P1의 `blocked_would_be_correct`는 각각 1,808·2,259·3,542건이다.
+- **`E3_row_clean`에서는 어떤 정책도 행을 잃지 않았다**(네 정책 모두 2,445/2,445). 깨끗한 row 분할의 모델이 이미 완벽하므로 조회가 3,542건(결정) 발동해도(P0·P2) 바꿀 것이 없다. P3가 거기서 18건(결정, 국적 16 + 선종 2)을 막았지만 손실은 없었다. 두 조회가 같은 선박을 가리켜 한 행에서 두 결정이 함께 막히므로 **행으로는 9행(국적 8 + 선종 1)**이다(검토자가 train으로 같은 규칙을 다시 계산해 확인). 이 실행의 `local_only/`에는 C3 계획만 있고 정책별 행 단위 결정은 저장하지 않으므로, 9행은 저장 산출물에서 재도출할 수 없고 위 2배 구조와 검토 재계산으로 확인된 값이다.
+- **P1의 H와 B는 구조적으로 0이다.** 조회를 한 번도 적용하지 않으므로 harm도 rescue도 정의상 발생하지 않는다. 따라서 net 0은 측정값이 아니라 고정된 기준선이고, harm이 benefit보다 큰 모든 정책은 자동으로 P1에 진다.
+- **H와 B는 서로 다른 데이터·행 수에서 나왔다.** H는 그룹 OOF 2개 시나리오 × 12,222행(24,444 행-패스), B는 row 분할 3개 시나리오 × 2,445행(7,335 행-패스)이다. 프로토콜이 그렇게 정의했고, 로컬에서 조회가 본 선박에 발동하는 데이터가 row 분할뿐이라 다른 선택이 없었다.
+- 조회 가능 건수: C2·C3에서는 호출부호만(1,273 / 802), row 분할에서는 호출부호 1,771 + 이름 조회(깨끗·T1 1,771, N5 490, N2 37)다.
+
+#### 해석 (추정)
+
+- **net 순위는 프로토콜이 정한 10% 충돌 비율과 잡음 강도, 그리고 위의 행 수 비대칭이 만든 결과다.** 리더보드 변화 예측이 아니며, 이 프로토콜 안에서 정책끼리만 비교한다. test에 충돌하는 호출부호가 거의 없다면 H는 작아지고 P0·P2·P3의 상대 위치가 바뀔 수 있다. 반대로 충돌이 흔하다면 P1이 더 유리해진다. 어느 쪽인지는 알 수 없다.
+- P1이 1위인 것은 "override가 쓸모없다"는 뜻이 아니라 "이 가정 아래서는 피해가 이득보다 크다"는 뜻이다. N5에서 override가 475행을 살린 것과 같은 실행 안에서 나온 결과다.
+- P3가 P2보다 net이 나은 이유는 harm을 804 → 466으로 줄이면서 benefit은 340 → 226만 잃었기 때문으로 본다. 그럴듯한 충돌(C3)에 대해 후보 소속은 무력하고 순위·속성 조건이 유일하게 작동한 조건이었다.
+- P3가 깨끗한 row 분할에서 막은 18건(국적 16, 선종 2)과 T1에서 막은 24건은, 조회가 맞는 선박을 가리켰는데도 속성 모순 조건이 걸린 경우다. 현재 임계값이 일부 정상 조회를 과하게 막는다는 신호일 수 있으나, 손실이 0이라 이 실행으로는 확인되지 않는다.
+- **스트레스·게이트 수치를 로컬·Public 차이와 크기 비교하지 않는다.** 섭동 종류와 강도가 임의 가정이라 같은 축에 놓을 수 없다.
+
+#### 제약과 다음 단계
+
+- 모든 공식 target 그룹은 과거 검증·오류 분석에 노출됐으므로 결과는 탐색적이다. row 분할은 조회가 본 선박에 발동하는 유일한 로컬 데이터이고 그 깨끗한 모델이 이미 2,445/2,445이므로, 이득은 섭동 아래에서만 존재한다.
+- 이 실행은 **진단 대상만 고른다**. 제출 패키지는 바꾸지 않았고, 정책 채택에는 별도 패키징 단계와 리더보드 진단 후 사용자의 결정이 필요하다.
+- 결과를 본 뒤 정책·상수·시나리오를 바꾸지 않았다. 바꾸려면 새 프로토콜 버전이 필요하다.
+- 제출 코드·제출 ZIP 미변경, 새 ZIP 없음, 리더보드 제출 없음, 패키지 설치 없음.
+
+#### 실행 검토 후 정정 (2026-10-19)
+
+- 검토에서 이 실행이 프로토콜(`73d4c464…`)대로 구현·실행됐음이 확인됐다. **무효 처리하지 않는다.** 다만 1·2번 질문이 가리킨 것은 구현 오류가 아니라 **프로토콜 판정 규칙의 설계 결함**이며, 그 때문에 "P1만 권고"라는 결론은 근거가 약하다. 이번 실행의 정책·상수·시나리오는 그대로 둔다.
+- **(1) 서로 다른 데이터의 H와 B를 더한 net은 설계가 잘못됐다.** 프로토콜에 `net = B − H`로 직접 적혀 있어 구현은 의도대로지만, H는 그룹 OOF 24,444 행-패스에서 10% 충돌로, B는 row 분할 7,335 행-패스에서 나온 값이다. 둘 다 임의로 정한 비율·강도에 정비례하므로 더하는 것 자체가 의미가 없다. **따라서 net 순위와 그에서 나온 권고는 이 프로토콜 안의 산출물로만 남기고, 정책 우열의 근거로 쓰지 않는다.**
+- 이 결과에서 읽을 수 있는 것은 합계가 아니라 **시나리오별 비율**이다. 아래는 **결과를 본 뒤 계산한 사후 해석**이며 판정에 쓰는 값이 아니다(P0 대비, 피해 차단 = 막은 harm 후보 / P0의 harm, 이득 유지 = 유지한 rescued / P0의 rescued).
+
+| 정책 | 피해 차단 C2 | 피해 차단 C3 | 이득 유지 N2 | 이득 유지 N5 | 이득 유지 T1 |
+|---|---|---|---|---|---|
+| `P2_candidate_member` | 1,269/1,271 (99.8%) | **0/802 (0%)** | 38/38 (100%) | 296/475 (62%) | 6/9 |
+| `P3_rank_and_attributes` | 1,271/1,271 (100%) | 336/802 (42%) | 19/38 (50%) | 201/475 (42%) | 6/9 |
+
+- 이렇게 보면 P2와 P3는 **단순 비교로 줄 세울 수 없는 상충 관계**다. 어느 쪽이 나은지는 실제 test에 충돌과 잡음이 얼마나 섞여 있는지에 달려 있고, 그 비중은 리더보드에서만 측정된다. **로컬 스트레스로는 게이트 정책의 우열을 정할 수 없다**는 것이 이번 실행의 결론이다.
+- **(2) P1의 net 0은 구조적 기준선이고 판정 규칙이 이를 감안하지 않았다.** P1은 조회를 전혀 적용하지 않아 H·B가 0으로 고정되므로, 다른 게이트가 B > H를 넘지 못하면 항상 1위가 된다. 넘을지 여부는 위의 임의 비율이 결정한다. 따라서 "P1만 권고"는 측정 결과보다 규칙 구조가 만든 결과다. `CLAUDE.md` 9절에는 이 단서가 이미 적혀 있다.
+- **(3) P3가 깨끗한 row 분할에서 막은 것은 실제 과차단이고 원인이 확인됐다.** 단위는 위에서 정정한 대로 18 결정 = 9행(국적 8, 선종 1)이다. 원인은 결측이 아니라 **같은 선박의 국적이 해마다 바뀐 경우**(재등록·편의치적)다. 9행 중 질의 국적이 결측인 행은 0이었다. 예: 질의 국적은 홍콩, 카탈로그는 코모로, 같은 선박의 학습 행에는 또 다른 국적. 카탈로그가 현재 국적 하나만 가지므로 연도가 다른 기록이 모순으로 판정된다. 깨끗한 분할에서는 모델이 이미 맞혀 손실이 0이지만, 이름이 망가진 E3에서는 같은 규칙이 맞는 조회를 막았다(국적·선종 차단 결정 수 N2 8+1, N5 9+2, T1 16+2). 반대로 C3에서는 국적 22·선종 12 결정을 막아 실제로 효과도 있었다. **"학습 매핑 확률 0이면 모순"은 국적에 대해 너무 강한 규칙**이다 — 국적은 정답 선박에서도 연도에 따라 달라지는 속성이다.
+- **(4) C3 적격 판정의 해석은 이 데이터에서 프로토콜과 같다.** `res["callsign"]`은 학습 행마다 `call_sign → target_vessel_id`를 넣어 만들고(`match_lib.py:242`), train의 `call_sign` 결측은 0%이며 여러 선박이 공유하는 호출부호는 0건이므로, 값 집합이 fold의 학습 target 집합과 정확히 같다. 다만 이 등가성은 그 두 데이터 성질에 기대고 있다.
+- **다음 버전(override-gate-v2)에 넘길 항목** — 이번 실행의 상수·정책은 바꾸지 않고 v2에서만 반영한다:
+  1. `net`을 없애고 **P0 대비 비율 두 축**(피해 차단율, 이득 유지율)을 시나리오별로 보고한다. 판정 규칙은 "어느 정책을 리더보드 진단에 낼지"만 정한다(예: P1 + 피해 차단율 최고 정책 + 이득 유지율 최고 정책).
+  2. **P1을 순위 경쟁에서 빼고 항상 함께 내는 대조군**으로 둔다. 그러면 (2)의 구조적 문제가 사라진다.
+  3. **국적 조건을 빼거나 약화한 변형을 별도 정책**으로 둔다. 근거로 이번 실행의 국적·선종 차단 결정 수(위 수치)를 명시한다.
+  4. C3 적격 문구를 "fold 학습 표 `callsign`의 **값 집합**"으로 직접 적는다.
+  5. 집계 단위(행 / 결정)를 지표 정의에 명시한다.
+- **다음 단계 판단:** 가장 정보가 많은 다음 단계는 **리더보드 진단**이다. P0은 Public 0.88로 이미 알고 있으므로, **P1(override 끔)을 제출하면 test에서 override의 순효과를 직접 잴 수 있다.** P3를 함께 내는 것은 **이번 판정 규칙 밖의 사후 선택**이므로, 그렇게 한다면 이 기록에 그 점을 밝힌다. 제출용 ZIP을 새로 만들어야 하므로(override 정책만 바꾼 v11) `CLAUDE.md` 6절 체크리스트 검증이 먼저다. 제출할 때마다 최종 선택이 Public 최고점 제출물로 자동 변경되므로 제출 후 최종 선택 상태를 확인한다. **제출 여부는 사용자가 결정한다.**
+- 이 검토에서 파일은 수정하지 않았고(위 문서 정정만 반영), 새 ZIP·리더보드 제출은 없다.
+
+### P1(override 끔) 제출 ZIP 생성·제출 전 점검 (2026-10-19, 미제출)
+
+- 새 ZIP: `submissions/team_v11_override_off_P1.zip`, SHA-256 `ebe559259a277312c57cb5e3cb786b5ea3a99243a0d775f687fd39e3046719a8`, 755,267 바이트. **재학습 없음.**
+- 원본: 사용자가 제공한 `submissions/team_v11_merged.zip`, SHA-256 `33dc878b5f4987011eb217f85527d960630225bd80c5d7c2ab60e64448420ab2`로 README 기록과 일치했다. 내부 세 산출물도 `training_metadata.json`과 모두 일치했다(`model_sha256 04aaae3c…`, `resources_sha256 8fae4a48…`, `source_match_lib_sha256 c2fc1041…`).
+- 새 스크립트 `scripts/make_submit_v11_override.py`가 `model/lgb_ranker.txt`·`model/match_lib.py`·`script.py`·`requirements.txt`를 **바이트 그대로 복사**하고 `model/resources.pkl`의 `use_callsign`·`use_name_lookup`만 True → False로 바꾼다. `script.py`가 두 플래그를 그 pickle에서 읽으므로 코드 변경이 없다. 네 복사 파일의 SHA-256이 배포본과 동일함을 생성 시점에 확인한다.
+- **플래그만 바뀌었다는 증명은 바이트가 아니라 객체 동등성으로 한다.** pickle은 같은 프로토콜(4)로 내용을 그대로 다시 써도 바이트가 달라진다(관측: 1,202,722 → 1,202,725 바이트, 중첩 numpy 배열 때문). 그래서 쓴 파일을 다시 읽어 배포본 객체와 비교하며, 10개 키 중 바뀐 키가 정확히 그 두 플래그뿐이고 키 집합·순서가 같아야 통과한다. 새 `resources.pkl`의 SHA-256은 `8fac5ead5618a9a2d47909632d9edc67cd59dc1857f15230eb4de587f2cb6fae`다.
+- **로컬 재학습은 의도적으로 쓰지 않았다 (중요).** `train.py --out … --no-dict --callsign --name-lookup`로 v11을 이 환경에서 다시 만들면 `resources.pkl`은 기록 해시와 **바이트 단위로 일치**하지만 `lgb_ranker.txt`는 **다르다**(로컬 `a1cd28b9379ca006…` 대 배포본 `04aaae3cc311b22e…`). 같은 명령을 두 번 돌린 결과는 서로 바이트 동일했으므로 **이 환경에서 학습은 결정적**이고, 차이는 실행마다의 난수가 아니다. `training_metadata.json`의 `source_commit 4d8640b`는 이 저장소에 존재하지 않는다(병합 전 팀원 저장소). LightGBM 4.6.0·Python 3.11.15·`match_lib.py` 해시는 모두 같다.
+  - (추정) 원인은 학습 특징을 만드는 내부 `GroupKFold`/`StratifiedGroupKFold` 교차적합이 scikit-learn 1.9.1에서 원래 환경과 다른 fold를 만들기 때문일 수 있다. `resources()`는 KFold를 쓰지 않아 일치하고 랭커 학습만 달라지는 것이 이 설명과 맞는다. 앞서 CUDA 분할 파일의 fold가 원본 CPU 분할과 달랐던 것과 같은 메커니즘이다. 확정하지 않았다.
+  - 결론: 로컬 재학습본으로 제출하면 **모델과 override 정책 두 가지가 동시에 바뀌어** override 순효과를 분리할 수 없다. 그래서 배포본에서 플래그만 바꾸는 경로를 택했다. 로컬 재학습 산출물은 `team_v11_artifacts/v11/src`·`team_v11_artifacts/v11_p1_override_off/src`에 남겨 두되 **제출에 쓰지 않는다**.
+- `scripts/check_row_independence.py`가 0바이트 빈 파일이어서 이번에 구현했다. 패키지의 실제 진입점 `script.py`를 하위 프로세스로 여러 번 실행해 같은 `sample_id`가 전체·부분집합·역순·단독·셔플에서 같은 예측을 받는지 비교한다. 라벨을 읽지 않고, 입력에 정답 열이 있으면 거부한다.
+
+#### 6절 제출 전 점검 결과 (7항목 전부 통과)
+
+| 항목 | 결과 |
+|---|---|
+| ZIP 최상위 구조 | **통과**. `model/lgb_ranker.txt`·`model/match_lib.py`·`model/resources.pkl`·`script.py`·`requirements.txt`뿐이고 추가 상위 폴더가 없다 |
+| 해제 후 네트워크 차단 실행 | **통과**. 임시 폴더에 해제하고 `data/`에 test 형식 입력(정답 열 제거)을 넣어 `python -I script.py` 정상 종료 |
+| 출력 형식 | **통과**. 12,222행, 컬럼 `sample_id,target_vessel_id`, `sample_id` 순서가 입력과 동일, 예측 전부 catalog의 `vessel_id`, 결측 0 |
+| 실행 시간 | **통과**. 12,222행 **3분 06초**(2회차 3분 12초) — 30분 한도의 약 10.3%, 여유 약 89% |
+| 3,000행 초과 입력 | **통과**. train 전체 12,222행(정답 열 제거)으로 실행. `script.py`·`match_lib.py`에 행 수·`sample_id` 하드코딩이 없고 `len(test)`와 `test["sample_id"]`만 쓴다 |
+| 행 독립성 · 2회 동일성 | **통과**. 8행(한글·비한글 포함)에서 부분집합·역순·단독이 전체 실행과 일치, 3,000행 셔플 실행의 3,000행 전부 일치. 같은 12,222행 입력 2회 실행의 `submission.csv`가 바이트 동일(SHA-256 `c1af4b6e4a9d3f0b…`) |
+| requirements.txt | **통과**. 설치 요구 패키지 0개(주석 한 줄뿐)이므로 사전 설치 패키지와 버전 충돌이 없다 |
+
+- 네트워크 차단은 프록시 환경변수를 닿지 않는 주소로 고정해 외부 HTTP가 실패하게 만든 것이며, 샌드박스로 강제한 격리는 아니다. `script.py`는 네트워크를 쓰는 import·호출이 없고, test 내용을 print하지 않는다(행 수와 출력 경로만 출력).
+- **미해결 위험(이번에 바꾸지 않음):** `script.py`의 `data/test.csv`·`output/submission.csv` 기본 경로는 **CWD 기준 상대경로**다(모델 경로는 `BASE` 기준). 6절은 "`script.py` 위치 기준 상대경로"를 요구한다. 배포본이 이미 채점된 적이 있으므로 서버의 CWD가 패키지 루트라는 것은 경험적으로 확인됐고, 진단에서 변수를 하나로 유지하기 위해 수정하지 않았다. 이후 정식 제출본에서는 고치는 편이 안전하다.
+
+#### train 12,222행 P0·P1 대조 (참고)
+
+- P0(배포본, override 켬) 12,222/12,222, P1(override 끔) 12,221/12,222. **예측이 갈린 행은 1행**이고 P0만 정답, 한글 행은 0이다.
+- 학습 행은 모든 선박이 "본 선박"이고 모델 단독으로 이미 거의 완벽해서 override 효과가 거의 드러나지 않는다. `row_seed42`에서 호출부호 override가 0행을 바꾼 것과 같은 양상이다. **따라서 이 대조로 test에서의 override 순효과를 예측할 수 없고**, 리더보드 진단이 필요한 이유가 그대로 유지된다. 이 수치는 학습 행 기준이므로 일반화 성능이 아니다.
+
+#### 제출 판단 (사용자 결정 사항)
+
+- P1 ZIP은 6절 체크리스트를 모두 통과했고 **제출하지 않았다**. 제출 여부와 시점은 사용자가 결정한다.
+- 제출하면 P0(Public 0.88)과 **override 정책 하나만** 다른 비교가 되어 test에서의 override 순효과를 직접 잴 수 있다.
+- 제출할 때마다 최종 선택이 **Public 최고점 제출물로 자동 변경**되므로 제출 후 최종 선택 상태를 확인해야 한다. 11월 2일 10:00 이후에는 변경할 수 없다.
+- P3(순위·속성 게이트)를 함께 내는 것은 `v11-override-gate-1` 판정 규칙 밖의 **사후 선택**이다. 그렇게 하려면 이 기록에 그 점을 남기고, P3용 ZIP은 별도로 만들어 같은 체크리스트를 다시 통과해야 한다(현재 `make_submit_v11_override.py`는 `--policy off|callsign_only|name_only|both`만 지원하며 P3 게이트는 추론 코드 변경이 필요해 포함하지 않았다).
+- 기존 `submissions/team_v11_merged.zip`은 수정하지 않았다. 리더보드 제출·커밋·패키지 설치 없음.
+
+### P1(override 끔) 리더보드 진단 결과 (2026-10-19)
+
+- 사용자가 `submissions/team_v11_override_off_P1.zip`(SHA-256 `ebe559259a277312c57cb5e3cb786b5ea3a99243a0d775f687fd39e3046719a8`)을 제출해 Public **0.8882950791**을 보고했다. P0 `team_v11_merged.zip`과 점수가 같고 소요 시간도 같다고 보고했다. 리더보드 화면과 업로드 파일 해시는 직접 확인하지 않았다.
+- 로컬 대조: 두 ZIP의 파일 5개 중 `model/resources.pkl`만 다르다. P0은 `use_callsign=True, use_name_lookup=True`, P1은 둘 다 `False`다. 조회표 항목 수(호출부호 5,851, 이름 5,857)와 모델·`match_lib.py`·`script.py`·`requirements.txt`는 바이트 단위로 같다. 즉 진단 ZIP은 의도대로 override만 껐다.
+- **확인된 사실:** override 정책 하나만 바꿨는데 Public 점수가 소수점 10자리까지 같다.
+- **해석(추정):** Public 평가 대상에서 override는 최종 예측을 사실상 바꾸지 않았다. 이득과 손실이 정확히 상쇄됐을 가능성은 행별 결과가 없어 배제할 수 없지만, 한글·비한글 각각 같은 수만큼 상쇄돼야 하므로 매우 낮다. 따라서 Public 0.888과 로컬 그룹 OOF 약 0.9968의 차이는 **모델·후보 생성 경로**에서 생긴다. 스트레스 OOF에서 후보 생성을 깨뜨린 토큰 순서(N5), 한글 글자 잡음(N2), 한글 톤수 결측·잡음(T1·T2)이 다음 조사 대상이다.
+- override 게이트(`v11-override-gate-1`)의 정책 차이는 Public 점수에 영향이 없다. Private는 Public을 포함한 전체 채점 대상이므로 추가 행에서 override가 발동할 가능성은 남는다.
+- 같은 Public 점수의 제출물이 둘이므로, 사용자는 리더보드의 최종 선택 상태를 확인해야 한다.
+
+### 한글 강건성 학습 증강 프로토콜 사전 고정 (2026-10-19, 실행 전)
+
+- 파일: `experiments/protocols/v11_korean_augment_v1.json`(`v11-korean-augment-1`), SHA-256 `b3bf281ea0acb37f4c1a30d8ec7586476294ce7d5677e74e51fcb944f458f85c`. 증강 학습을 하기 전에 고정했다.
+- 근거: P1(override 끔)도 Public 0.8882950791로 P0과 같아 차이는 모델·후보 경로에 있다. 스트레스 OOF에서 한글 정확도 하락이 큰 조건은 한 글자 편집(−0.0831), 톤수 결측(−0.0411), 톤수 ±20%(−0.0361)였다. train 한글 행은 톤수 결측 0%, 선박당 이름이 거의 하나라 모델이 이런 한글 질의를 학습한 적이 없다.
+- 방법: 내부 학습 fold의 한글 질의마다 섭동 사본 1개를 추가한다(정답 유지, 조회표·사전은 깨끗한 행으로만). 변형 A1 톤수 결측, A2 톤수 ×0.85~1.15, A3 음절 삭제·공백 삽입, A4 혼합. A0는 기존 fold 모델을 재사용한다. 추론 코드·후보 생성은 바꾸지 않는다.
+- 평가: 기존 5-fold 그룹 OOF 12,222행. 학습에 쓴 섭동과 겹치는 T1·N1·N2 삭제 행은 보고만 하고, **판정은 학습에 없던 섭동 6개**(T2 ±20%, 새 T2b ±30%, 새 T4 총톤수만 결측, N3, 새 N6 음절 중복, 새 N7 한글 음절 맞바꿈)로 한다.
+- 게이트·판정: A0 재현(G0), 증강을 끈 학습 행렬 해시 5개와 fold 0 재학습 모델 해시 일치(G0b), 깨끗한 OOF에서 한글 순증감 ≥ 0·비한글 ≥ −3(G2). 학습에 없던 섭동 6개의 한글 이득 합 ≥ +24행이고 어느 시나리오도 한글 순감소가 없어야 한다. 통과 변형 중 이득이 가장 큰 1개를 **리더보드 진단 후보**로만 추천하며 제출 모델 채택이 아니다.
+- 구현 내용은 아래 항목에 있다. 결과를 본 뒤 변형·비율·계수·시나리오·임계값을 바꾸려면 새 프로토콜 버전이 필요하다.
+
+### v11 한글 강건성 증강 구현 (2026-10-19, 결과 없음 / 미실행)
+
+- 프로토콜 해시 재확인: `experiments/protocols/v11_korean_augment_v1.json` = `b3bf281ea0acb37f4c1a30d8ec7586476294ce7d5677e74e51fcb944f458f85c`, 참조하는 `v11_stress_oof_v1.json` = `4fc3f8ba…`. 두 파일 모두 수정하지 않았다.
+- 고정 입력 검증: train.csv·vessel_catalog.csv·분할 파일 해시 일치, A0 source run `agent_v11_mlp_oof_20261019_120302_49fae2`의 fold 0~4 모델·깨끗한 case 파일 해시 일치. 프로토콜의 `a0_training_matrix_sha256` 5개와 `a0_model_sha256` 5개가 그 실행의 `diagnose_*.json`에 기록된 값과 **전부 일치**했다(모델 해시는 fresh-fit 기준이라 G0b의 재학습 비교가 성립한다. 부스터 텍스트 재직렬화 해시와는 다른 값이다).
+- **새 파일**: `agent/korean_augment.py`(a(...) 해시와 A1~A4 복사 규칙), `agent/stress_heldout.py`(T2b·T4·N6·N7), `scripts/run_v11_korean_augment.py`(실행기), `tests/test_korean_augment.py`(회귀 검사).
+- **기존 파일 변경은 `agent/retrain_runtime.py` 한 곳뿐이다**: `training_matrix`/`fit`에 선택 인자 `augment=None`을 추가했다. `augment=None`이면 호출 순서·행 구성이 이전과 같아 행렬 해시가 바뀌지 않고 `stats`에 `augmentation` 키도 생기지 않는다. 증강이 있으면 각 inner split에서 `fit_idx`의 **깨끗한 행만으로 resources를 만든 뒤** `prep_idx` 한글 행의 복사본을 추가 질의로만 붙인다. `retrain_config.py`의 KNOBS·fingerprint는 건드리지 않았으므로 기존 원장·결과에 영향이 없다. `agent/stress_perturbations.py`와 `agent/team_v11/source`는 수정하지 않았다.
+- 증강 해시는 프로토콜 문자열 `v11-korean-augment-1`을 쓰고 평가 섭동은 `v11-stress-oof-1`을 그대로 쓰므로 학습과 평가가 같은 추출값을 공유하지 않는다. 변형 토큰은 프로토콜 문구대로 `A1`·`A2`·`A3`·`A4`이고, A4는 고른 변형의 **자기 토큰**으로 salt를 만들어 같은 행에서 단독 변형과 동일한 복사본을 만든다(테스트로 확인).
+- A3는 프로토콜 문구를 그대로 구현했다: 음절 3개 이상이고 `a(sid,'A3','op') < 0.5`면 `S[floor(a(sid,'A3','pos')*len(S))]` 음절을 삭제하고, 그 밖에 이름 길이 2 이상이면 `1 + floor(a(sid,'A3','pos')*(len(name)-1))`을 `len(name)-1`로 clamp한 위치에 공백 하나를 넣는다. 원본과 같은 복사본도 추가하고 `copies_changed`에서 빼서 센다.
+- N7은 **서로 다른 음절 쌍만** 후보로 두므로 `가가`·`가가가`처럼 모든 인접 쌍이 같은 이름은 비적격이다. N2 한글 삭제 행은 연산 레이블 `n2_korean_delete_syllable` 정확 일치로 분리하며, 삭제가 실제로 적용되지 않은 `_no_change` 행은 제외된다.
+- 평가 그룹(한글/비한글)은 스트레스 실행과 같게 **섭동 전 원본 `vessel_name`**으로 고정해 A0과 같은 행끼리 대응 비교가 되게 했다.
+- 게이트 구현: G0은 A0 깨끗한 재현(5 fold 후보·특징 해시 + 12,222행 예측), G0b는 증강을 끈 학습 행렬 해시 5개와 fold 0 재학습 모델 해시 비교다. **G0 또는 G0b가 실패하면 변형을 하나도 학습하지 않고 멈춘다.** G1은 변형·fold별 한글 prep 행 수·복사본 수·실제 변경 수·연산 분포와 외부 검증 `sample_id` 유입 0건을 기록한다(증강 함수가 금지 ID를 받으면 즉시 실패). G2는 `E0_clean`에서 한글 순증 ≥ 0, 비한글 순증 ≥ −3, 후보 포함률 동일을 요구한다. G3은 변형마다 `E0_clean`에서 한글·비한글 포함 5행 이상의 역순 부분집합·단독 예측 일치를 확인한다.
+- 판정은 프로토콜대로: 적격 변형 중 held-out 6개 시나리오의 한글 순증 합계가 **+24 이상이고 음수 시나리오가 없는** 변형을 고르며, 동점은 단일 변경(A1·A2·A3) 우선, 그다음 A1 < A2 < A3이다. 임계값 24·−3은 코드 상수로 두고 실행 시작 시 프로토콜 문구와 대조해 다르면 실패한다.
+- **아직 실행하지 않았다.** 이 항목에는 G0~G3 결과, 변형별 이득, 권고 변형이 없다. 실행은 사용자가 수행하며 `tests/test_korean_augment.py`가 먼저 통과해야 한다. 예상 비용은 변형 4개 × fold 5개 재학습(fold당 약 190초) + 패리티 재학습 1회 + 모델 5개 × fold 5개 × 시나리오 10개 예측(1회 약 41초)으로 **3~4시간**이다.
+- 제출 코드·제출 ZIP은 건드리지 않았고 새 ZIP도 만들지 않았다. 리더보드 제출·패키지 설치 없음. 행 단위 파일과 학습 모델은 `local_only/`에만 둔다.
+
+### v11 한글 강건성 증강 결과 (2026-10-20, 검증된 음성 결과)
+
+- 실행 ID `agent_v11_korean_augment_20261020_013301_9d2a38`, 프로토콜 `v11-korean-augment-1`(SHA-256 `b3bf281e…`). 선행 게이트 전용 실행 `agent_v11_korean_augment_20261019_231617_4704c4`도 보존했다. 아래 수치는 모두 그 실행의 `summary.json`에서 그대로 옮겼다.
+- 검사: `tests/test_korean_augment.py` **28개 전부 통과**, 기존 묶음까지 **141개 전부 통과**(건너뜀 0).
+- 게이트: **G0 통과**(A0 재현 12,222/12,222, 후보·특징 해시 5 fold 일치), **G0b 통과**(증강 끈 학습 행렬 해시 5개 전부 일치, fold 0 재학습 모델 해시 `796bb2a7…` 일치, 학습 183.1초, `augmentation` 키 없음), **G1 통과**(변형마다 한글 prep 4,764행 → 복사본 4,764개 전부 실제 변경, 외부 검증 `sample_id` 유입 **0건**, 라벨 보존, 학습 행렬이 A0과 다름), **G2 네 변형 모두 통과**, **G3 통과**(25개 검사, 최소 5행, 한글·비한글 포함).
+- 증강 규모 예시(fold 0): 한글 prep 999행 → 복사본 999개. A3는 음절 삭제 451 / 공백 삽입 548. A2는 계수 0.85/0.9/1.1/1.15가 256/259/241/243. A4는 A1 327 / A2 343 / A3 329로 거의 균등. 학습 행렬 행 수는 A0 1,039,755 → A1 1,164,160으로 늘었다.
+
+#### held-out 시나리오 — 판정 대상 (한글 순증 vs A0)
+
+| 변형 | T2 | T2b | T4 | N3 | N6 | N7 | 합계 | 음수 시나리오 | 기준(+24·음수 없음) |
+|---|---:|---:|---:|---:|---:|---:|---:|---|---|
+| `A1_tonnage_missing` | **+16** | **+16** | +3 | −1 | −3 | **−17** | **+14** | N3·N6·N7 | 미충족 |
+| `A2_tonnage_noise` | +4 | **−36** | +3 | −2 | −3 | **−17** | **−51** | T2b·N3·N6·N7 | 미충족 |
+| `A3_name_noise` | **−150** | **−118** | +6 | +3 | +7 | **+37** | **−215** | T2·T2b | 미충족 |
+| `A4_mixed` | +10 | **−61** | +4 | +3 | +1 | +23 | **−20** | T2b | 미충족 |
+
+#### matched 시나리오 — 보고용 (학습에 쓴 섭동과 같은 종류)
+
+| 변형 | T1 | N1 | N2_delete_korean |
+|---|---:|---:|---:|
+| `A1_tonnage_missing` | +18 | +4 | −25 |
+| `A2_tonnage_noise` | +12 | +4 | −17 |
+| `A3_name_noise` | +10 | +7 | **+46** |
+| `A4_mixed` | **+22** | +7 | +29 |
+
+#### E0_clean (G2)
+
+| 변형 | 전체 | 한글 | 비한글 | 가중 원점수 | 한글 순증 | 비한글 순증 | 후보 포함률 동일 | G2 |
+|---|---|---|---|---:|---:|---:|---|---|
+| `A0_none` | 12209/12222 | 1186/1191 | 11023/11031 | 0.996844 | — | — | 기준 | 기준 |
+| `A1_tonnage_missing` | 12210/12222 | 1187/1191 | 11023/11031 | 0.997431 | +1 | 0 | 예 | 통과 |
+| `A2_tonnage_noise` | 12208/12222 | 1186/1191 | 11022/11031 | 0.996817 | 0 | −1 | 예 | 통과 |
+| `A3_name_noise` | 12213/12222 | 1189/1191 | 11024/11031 | 0.998634 | +3 | +1 | 예 | 통과 |
+| `A4_mixed` | 12213/12222 | 1189/1191 | 11024/11031 | 0.998634 | +3 | +1 | 예 | 통과 |
+
+- A0의 시나리오별 한글 기준값: T1 1137, N1 1182, N2_delete 945/1048, T2 1143, T2b 1136, T4 1183, N3 1186, N6 1172, N7 1106 (모두 /1191, N2_delete만 /1048).
+- 새로 틀린 행 수가 가장 큰 경우: A3/T2 213행(한글 154), A3/T2b 167행(한글 123), A4/T2b 127행(한글 70), A2/T2b 102행(한글 45). 이 네 경우의 주 오류 유형은 모두 `other_rank_failure`가 압도적이다(206/213, 160/167, 114/127, 81/102).
+- 반대로 A3/N7은 새로 맞힘 49행·새로 틀림 11행, A3/N2_delete는 새로 맞힘 57행·새로 틀림 11행이다.
+
+#### 확인된 사실
+
+- **권고 변형은 없다.** 네 변형 모두 적격(G0·G0b·G1·G3 통과 + G2 통과)이지만, held-out 한글 순증 합계가 +24 이상이면서 음수 시나리오가 없는 변형이 하나도 없다. 가장 가까운 A1도 합계 +14에 음수 시나리오가 3개다. 프로토콜대로 **검증된 음성 결과**로 기록한다.
+- **섭동 종류를 넘는 전이가 음수다.** 톤수로 증강하면(A1·A2) 톤수 held-out은 올라가지만(A1: T2 +16, T2b +16) 이름 held-out이 내려간다(N7 −17, N6 −3). 이름으로 증강하면(A3) 이름 쪽이 크게 올라가지만(N7 +37, N6 +7, matched N2_delete +46) 톤수가 무너진다(T2 −150, T2b −118). A4 혼합은 중간이지만 T2b −61로 여전히 음수다.
+- **약한 잡음으로 학습해도 강한 잡음에 전이되지 않는다.** A2는 ±10~15%(계수 0.85·0.9·1.1·1.15)로 학습했는데 ±20%(T2)에서는 +4, ±30%(T2b)에서는 **−36**이다. 같은 종류·더 큰 강도에서 오히려 나빠졌다.
+- **깨끗한 입력에서는 네 변형 모두 손실이 없다.** 한글은 A1 +1, A2 0, A3·A4 +3이고 비한글은 −1~+1이다. A3·A4는 한글 1,189/1,191로 깨끗한 OOF의 한글 오답을 5개에서 2개로 줄였다. 후보 포함률은 모든 변형·시나리오에서 A0과 같다(추론 경로 미변경 확인).
+- 증강은 외부 검증 행을 전혀 쓰지 않았다(유입 0건). resources는 inner split의 `fit_idx` 깨끗한 행만으로 만들었고, 복사본은 `prep_idx` 한글 행에 대해서만 추가 질의로 붙었다.
+
+#### 해석 (추정)
+
+- 톤수 증강과 이름 증강이 서로를 해치는 것은, 랭커가 두 신호 중 하나에 **의존 비중을 옮기는** 방식으로 강건성을 얻기 때문으로 보인다. 톤수가 흔들리는 복사본을 보면 이름 유사도에 더 기대고, 이름이 흔들리는 복사본을 보면 톤수에 더 기댄다. 그래서 반대쪽 섭동에서 더 크게 무너진다. A3/T2·T2b의 새 오답이 거의 전부 `other_rank_failure`(특정 톤수·이름 서명이 없는 순위 실패)인 것이 이 설명과 맞지만, 특징 중요도 변화를 직접 측정하지 않았으므로 확정하지 않았다.
+- A2가 더 강한 잡음에서 나빠진 것은, 작은 오차를 '정상 범위'로 학습해 톤수 신호를 더 신뢰하게 됐을 가능성이 있다. 이 역시 측정하지 않았다.
+- 한 종류만 증강해 두 종류 모두에서 이득을 보려는 접근은 이 데이터·이 랭커에서는 작동하지 않을 가능성이 높다. 다음 시도는 (1) 섭동 종류별로 신호 의존도를 직접 제약하는 특징·정규화, (2) 두 종류를 같은 행에 동시에 적용하는 증강(이번 A4는 행마다 하나만 골랐다), (3) 톤수·이름 신호를 분리해 학습하는 구조 변경 쪽이다. 모두 새 프로토콜을 먼저 고정해야 한다.
+- **이득·퇴보 크기를 로컬 OOF와 Public 0.8882950791의 차이와 비교하지 않는다.** 섭동 종류와 강도가 임의로 정한 가정이라 같은 축에 놓을 수 없다.
+
+#### 제약·보존
+
+- 모든 공식 target 그룹은 과거 검증·오류 분석에 노출됐으므로 탐색적 결과다. held-out 섭동도 가정이며 실제 test의 표기·톤수 차이와 같다는 보장이 없다. +24·−3 임계값은 결과를 보기 전에 고정했고 바꾸지 않았다.
+- 이 실행은 리더보드 진단 대상만 고르며 제출 모델을 채택하지 않는다. 권고 변형이 없으므로 **새 제출 후보도 없다**.
+- 제출 코드·제출 ZIP 2개 미변경, 새 ZIP 없음, 리더보드 제출 없음, 커밋·패키지 설치 없음. 학습 모델 20개와 행 단위 값은 `local_only/`에만 있다.
+
+### 언어 분해 진단 사전등록 (2026-10-21, ZIP 생성 전)
+
+- **목적:** Public 점수 하나를 한글 정확도 K와 비한글 정확도 N으로 분해한다. 현재 P0·P1이 모두 Public `0.8882950791`로 같아 로컬 가중 약 0.9968과의 차이가 어느 언어에서 생기는지 알 수 없다. 공식 산식이 `0.7·K + 0.3·N`이므로, 한글 행만 의도적으로 틀리게 제출하면 남은 점수가 비한글 기여분이 되어 두 값을 분리할 수 있다.
+- **계산식 (결과를 보기 전에 고정):**
+  - `N = S_d / 0.3`
+  - `K = (0.8882950791 − 0.3·N) / 0.7`
+  - 여기서 `S_d`는 이 진단 제출물의 Public 점수다. 결과가 나온 뒤 **이 두 식만으로 계산하고** 다른 보정·추정을 넣지 않는다.
+- **고정 ID 선택 규칙과 값:** `data/open/vessel_catalog.csv`의 `vessel_id` 중 `data/open/train.csv`의 어떤 `target_vessel_id`도 아닌 것들에서 **사전순 최소**. 계산 결과는 **`VESSEL_00000`**이다(catalog 78,595개, train target 고유 5,851개, 조건을 만족하는 후보 72,744개 중 첫 값). 빌드 시점에 계산해 `model/probe_config.json`에 기록한다.
+- **변경 범위:** P0(`submissions/team_v11_merged.zip`, SHA-256 `33dc878b…`)과 같고, 한글 행의 `target_vessel_id`만 위 고정 ID로 바꾼다. 한글 판정은 공식 산식과 같은 규칙(`vessel_name`에 `[가-힣]` 한 글자 이상 포함)을 쓰고, `vessel_name`이 결측이거나 문자열이 아니면 비한글로 센다. 모델·`match_lib.py`·`resources.pkl`·`requirements.txt`는 배포본에서 바이트 그대로 복사하며 재학습하지 않는다. 배포본 `script.py`의 CWD 상대경로 처리도 그대로 두어 변수를 하나로 유지한다.
+- **해석 기준 (사전 고정):**
+  - 로컬 5-fold 그룹 OOF 기준선과 대조한다 — 한글 1,186/1,191(0.995802), 비한글 11,023/11,031(0.999275).
+  - 언어별 손실 기여분을 `0.7·(1−K)`와 `0.3·(1−N)`으로 각각 적는다. 두 값의 합이 `1 − 0.8882950791 = 0.1117049209`와 맞는지 확인한다.
+  - 어느 언어의 기여분이 큰지로 다음 작업 방향(후보 생성 대 랭킹, 한글 대 비한글)을 정한다.
+- **한계 (사전 고정):**
+  - Public 평가 대상에만 적용된다. Private의 추가 행에서는 K·N이 다를 수 있다.
+  - 이 ZIP은 **최종 후보가 아니다.** 의도적으로 한글을 틀리게 만든 진단용이며 제출하면 점수가 크게 낮다.
+  - 고정 ID가 Public의 어떤 한글 행의 정답과 우연히 같으면 `K_probe > 0`이 되어 `N`은 과대, `K`는 과소 추정된다. train target이 아닌 ID를 골라 그 가능성을 줄였지만, test에는 train에 없던 선박이 있을 수 있어 0은 아니다. 결과가 나오면 이 가능성을 명시한 채 해석한다.
+  - 제출할 때마다 최종 선택이 **Public 최고점 제출물로 자동 변경**된다. 이 진단은 점수가 낮아 최고점이 되지 않지만, 제출 후 최종 선택 상태를 반드시 확인해야 한다.
+- 이 항목은 ZIP을 만들기 전에 기록했다. `experiments/protocols/`의 프로토콜 파일은 수정하지 않는다. 제출 여부는 사용자가 결정한다.
+
+### 언어 분해 진단 ZIP 생성·검증 (2026-10-21, 미제출)
+
+- 새 ZIP: `submissions/team_v11_language_probe_korean_fixed.zip`, SHA-256 `2555a715cee102cd379c49517fff9989648666cb29aa64b2be487b7e0a2feb72`, 756,243 바이트. **재학습 없음, 로컬 산출물 미사용.** 생성 스크립트는 `scripts/make_submit_v11_language_probe.py`다.
+- 고정 ID는 사전등록대로 **`VESSEL_00000`**이다(catalog 78,595개 중 train target 5,851개를 뺀 72,744개 후보의 사전순 최소). `model/probe_config.json`에 모드·ID·규칙·계산식을 기록했다.
+- 원본 P0(`team_v11_merged.zip`, SHA-256 `33dc878b…`)에서 `model/lgb_ranker.txt`(`04aaae3c…`)·`model/match_lib.py`(`c2fc1041…`)·`model/resources.pkl`(`8fae4a48…`)·`requirements.txt`(`b924f58d…`)를 **바이트 그대로** 복사했다. 네 해시가 `training_metadata.json` 기록과 모두 일치한다. `resources.pkl`은 1,202,722바이트로 배포본과 완전히 동일하다(P1은 pickle 재작성 때문에 1,202,725였다). 조회 플래그는 `use_callsign=True`·`use_name_lookup=True`로 **P0과 같다**(P1이 아니다).
+- `script.py`는 배포본 텍스트를 그대로 두고 **추가 25줄·삭제 0줄**만 넣었다(CWD 상대경로 처리 포함 미변경). 삽입 내용은 import 한 줄, 한글 판정 함수, 진단 함수, 그리고 `result` 조립 직후의 호출 한 줄이다. 삭제된 줄이 있으면 빌더가 실패하도록 했다.
+- **한글 행 수를 print하지 않도록 했다.** 집계값이라도 비공개 평가 데이터에서 파생된 정보를 서버 로그에 남기지 않는 쪽이 5절 3번에 안전하다고 판단했다. 그 결과 Public의 한글 행 수는 이 진단으로 알 수 없고 K·N 비율만 복원된다.
+
+#### 6절 제출 전 점검 (7항목 전부 통과)
+
+| 항목 | 결과 |
+|---|---|
+| ZIP 최상위 구조 | **통과**. `model/`(lgb_ranker.txt·match_lib.py·resources.pkl·probe_config.json)·`script.py`·`requirements.txt`뿐, 추가 상위 폴더 없음 |
+| 해제 후 오프라인 실행 | **통과**. 임시 폴더에 해제하고 프록시를 막은 상태로 12,222행·3,000행 모두 정상 종료 |
+| 출력 형식 | **통과**. 두 입력 모두 컬럼 `sample_id,target_vessel_id`, 행 수가 입력과 같음, `sample_id` 순서 동일, 예측 전부 catalog의 `vessel_id`, 결측 0 |
+| 실행 시간 | **통과**. 12,222행 3분 39초(1회차)·3분 27초(2회차), 3,000행 55초. 30분 한도의 약 12.1%, 여유 약 88% (같은 입력에서 P0는 3분 17초·53초) |
+| 3,000행 초과 입력 | **통과**. train 전체 12,222행(정답 열 제거). 행 수·`sample_id` 하드코딩 없음(배포본 `script.py` 로직 미변경, `len(test)`·`test["sample_id"]`만 사용) |
+| 행 독립성 · 2회 동일성 | **통과**. `scripts/check_row_independence.py`로 8행(한글·비한글 포함)의 부분집합·역순·단독이 전체 실행과 일치하고 3,000행 셔플의 3,000행 전부 일치. 같은 12,222행 입력 2회 실행의 `submission.csv`가 바이트 동일(SHA-256 `842b3316c5a006a2…`) |
+| requirements.txt | **통과**. 설치 요구 패키지 0개(주석 한 줄) |
+
+#### 진단 전용 검증 (전부 통과)
+
+| 검증 | 12,222행 | 3,000행 |
+|---|---|---|
+| 한글 행 수(`[가-힣]` 규칙) | 1,191 | 293 |
+| 비한글 행 수 | 11,031 | 2,707 |
+| 한글 행 전부 고정 ID | **1,191/1,191** | **293/293** |
+| 한글 행 중 고정 ID 아닌 행 | 0 | 0 |
+| 비한글 예측이 P0과 **행별 동일** | **11,031/11,031** | **2,707/2,707** |
+| 한글 행 중 P0과 달라진 행 | 1,191 (전부) | 293 (전부) |
+
+- 12,222행 입력의 한글 1,191행은 train의 한글 행 수와 같다. 한글 행이 **전부** P0 예측과 달라졌으므로 고정 ID는 P0가 내던 예측이 아니다(train target이 아니라는 선택 규칙과 일치).
+- 로컬 지표(정답은 평가 단계에서만 결합): **probe 한글 0.000000 / 비한글 1.000000 / 가중 원점수 0.300000000**, 같은 입력에서 **P0 한글 1.000000 / 비한글 1.000000 / 가중 1.000000000**. 한글 정확도가 정확히 0이고 비한글이 P0과 같으므로 `S = 0.3·N` 관계가 그대로 성립한다(N=1에서 0.3). **학습 데이터이므로 기능 확인이며 성능 추정이 아니다.**
+- 대조 기준의 재현성도 확인했다. 오늘 P0를 같은 12,222행으로 다시 돌린 결과가 10-19에 보존한 P1 출력과 **정확히 1행** 달랐고, 이는 10-19에 측정한 P0−P1 차이와 같다. (검증 중 한 번 `p0_pkg/output/submission.csv`를 3,000행 결과로 덮어써서 '저장된 P0 출력과 다름'이라는 잘못된 비교가 나왔다. 원인은 비교 대상 파일이 바뀐 것이고 P0 비결정성이 아니다.)
+- 기존 ZIP 2개는 수정하지 않았다(`team_v11_merged.zip` `33dc878b…`, `team_v11_override_off_P1.zip` `ebe55925…`). `experiments/protocols/`의 프로토콜 파일, `agent/team_v11/source`, 제출 코드도 건드리지 않았다.
+
+#### 사전등록한 계산식 (결과가 나오면 이것만 쓴다)
+
+- `N = S_d / 0.3`
+- `K = (0.8882950791 − 0.3·N) / 0.7`
+- 언어별 손실 기여분을 `0.7·(1−K)`·`0.3·(1−N)`으로 적고 합이 `0.1117049209`와 맞는지 확인한다. 로컬 기준선 한글 1,186/1,191(0.995802)·비한글 11,023/11,031(0.999275)과 대조한다.
+- 한계: Public 전용이며 Private의 추가 행에서는 다를 수 있다. 고정 ID가 Public 한글 행의 정답과 우연히 같으면 `K_probe > 0`이 되어 N 과대·K 과소 추정이 된다(train target이 아닌 ID로 줄였지만 0은 아니다). 이 ZIP은 **최종 후보가 아니다.**
+- **제출 여부는 사용자가 결정한다. 제출하면 최종 선택이 Public 최고점 제출물로 자동 변경되므로 제출 후 최종 선택 상태를 확인해야 한다.** 리더보드 제출·커밋·패키지 설치는 하지 않았다.
+
+### 언어 분해 진단 결과 (2026-10-21)
+
+- 사용자가 `submissions/team_v11_language_probe_korean_fixed.zip`(SHA-256 `2555a715…`)을 제출해 Public **0.2725056054**를 보고했다. 리더보드 화면은 직접 확인하지 않았다.
+- **사전등록 식으로만 계산:** `N = 0.2725056054 / 0.3 = 0.9083520180`, `K = (0.8882950791 − 0.2725056054) / 0.7 = 0.8796992481`. 두 값 모두 [0, 1] 안에 있다(범위 확인 통과 — 대회 한글 판정이 `[가-힣]` 규칙과 어긋나거나 고정 ID가 크게 오염됐다는 신호는 없다).
+- **언어별 손실 기여분:** 한글 `0.7·(1−K) = 0.0842105263`(약 75%), 비한글 `0.3·(1−N) = 0.0274943946`(약 25%). 합은 `0.1117049209`로 정의상 일치한다(독립 검증이 아니다).
+- **로컬 기준선 대비:** 한글 0.8797 대 0.9958, 비한글 0.9084 대 0.9993. **두 언어 모두** 크게 낮다. 오류율로는 한글 약 12.0% 대 0.42%, 비한글 약 9.2% 대 0.07%다.
+- **행 수 역산(참고, 사전등록 밖 사후 계산):** 10자리 점수를 분수로 역산하면 비한글 정확도는 `3,241/3,568`과 그 배수만 맞고, 한글은 `117/133`과 그 배수만 맞는다(분모 4만 이하 탐색). 따라서 Public 비한글 행 수는 3,568의 배수, 한글 행 수는 133의 배수일 가능성이 높다. 최소 분모 기준으로는 비한글 오답 327행 이상, 한글 오답 16행 이상이다. 공개 점수만 쓴 계산이며 반올림 오차가 있어 배수는 확정하지 않는다.
+- **해석(추정):** 점수 손실의 75%는 한글 쪽이지만, 비한글 정확도도 로컬보다 크게 낮아 **새 평가 행에 두 언어 모두에 걸친 분포 차이가 있다**고 본다. 최소 분모 기준으로 한글 한 행은 점수 약 0.0053, 비한글 한 행은 약 0.000084의 가치라 한글 한 행이 약 60배 무겁다. 행 수로는 비한글 오답이 훨씬 많다. override는 Public 예측을 바꾸지 않았으므로(P0=P1), 새 행은 train에 없는 선박·호출부호일 가능성이 크다.
+- 고정 ID `VESSEL_00000`(크로아티아 여객선 "Unije", 657 GT)이 Public 한글 행의 정답일 가능성은 매우 낮다. 만약 그렇다면 N은 과대, K는 과소 추정이다.
+- 진단 ZIP은 최종 후보가 아니다. 제출 후 최종 선택이 P0(또는 P1)으로 유지되는지 사용자가 확인해야 한다.

@@ -1,0 +1,99 @@
+{
+  "protocol_version": "v11-korean-augment-1",
+  "status": "frozen_before_any_augmented_training",
+  "created_local": "2026-10-19",
+  "purpose": "Test whether adding perturbed copies of Korean training queries (tonnage missing, tonnage noise, name noise) makes the v11 LightGBM ranker more robust on Korean rows, without losing clean accuracy. Robustness is scored only on perturbations not used in training.",
+  "motivation": [
+    "P1 (override off) scored the same Public 0.8882950791 as P0, so the gap to the clean local OOF (about 0.9968) comes from the model and candidate path, not the lookups.",
+    "In stress run agent_v11_stress_oof_20261019_134700_8b55cd the Korean accuracy drops were N2 one-character edit -0.0831, T1 tonnage both missing -0.0411, T2 tonnage +/-20% -0.0361.",
+    "Training data has 0% tonnage missing on Korean rows and about one name per vessel, so the ranker never saw Korean queries with missing tonnage or variant spellings."
+  ],
+  "non_goals": [
+    "Not a leaderboard or Private estimate. Perturbations are assumptions about test rows.",
+    "Does not build or change a submission ZIP. A full-train package of a chosen variant is a separate step decided by the user.",
+    "Inference code, candidate generation and lookup tables are unchanged."
+  ],
+  "frozen_inputs": {
+    "train_csv_sha256": "61bfd199c827c9f7486fc8c9febb419c87ff0611a62d60cfbd7c6d177fa0648c",
+    "catalog_csv_sha256": "d3ad65c262ac9ee237d9fb86d36f0866b194cfc17bee58d948f23c97acff81f9",
+    "split_file": "experiments/splits/agent_v11_mlp_listwise_group5_seed20261019.json",
+    "split_sha256": "04d92f91874aae3340cb530eb2ca3c53ee1d6b68a94aa0e23a523a3a7b4e2292",
+    "stress_protocol": {"file": "experiments/protocols/v11_stress_oof_v1.json",
+                        "sha256": "4fc3f8ba3fead033185470caf3b86452b32eb13e4db3df2515df22b3f11fc86a",
+                        "note": "Reuse its u(...) hash, its T1/T2/N1/N2/N3 perturbation code unchanged, its per-fold A0 models and clean case files."},
+    "a0_source_run": "experiments/results/agent_v11_mlp_oof_20261019_120302_49fae2",
+    "a0_training_matrix_sha256": {
+      "0": "ea4dabeaae40ce91ee8c63590b20df80c12b3ba6258d51c9f5f63ba833974eba",
+      "1": "cf9c9e5a286d444a4e3779124b403b7dec9ff345df86e33f2b22daeeb73161e8",
+      "2": "91b964058f66258538d35b32466c69a44af93cbf11271944fcc5b3b96234e9b4",
+      "3": "183d161f94c79f1cd798cf2584fb80bd40e9a5fe3d3c1b2fb5bf80f142ffea6e",
+      "4": "bdca6e96ff7523c67a54198a83012ad2bbf30ea2cf8a4c3370d4576669c93958"
+    },
+    "a0_model_sha256": {
+      "0": "796bb2a7f9b1dbc92d86e5bd2a875731b66e78456e4e4198b57d35cb13316887",
+      "1": "c5fde491d5e71d2c9ec234457738586204f71e28b17cbd5614670cd30a8644e6",
+      "2": "ab80d4f6f0806adae3f047e7e20669e9e5022672ee4edabce6703c132234464a",
+      "3": "f29cdf4d92ed1fe27cf7e981cf726c2355d74595c81d51cc6526da62e6ad450e",
+      "4": "9969422eeb92767dee2a791f58061f27f8b48f368abb352460c51031701129e9"
+    },
+    "a0_training_seconds_per_fold": "about 190 s in the source run"
+  },
+  "augmentation": {
+    "where": "Inside retrain_runtime.training_matrix, for each inner GroupKFold split: after building resources from fit_idx (clean rows only), add one perturbed copy of every Korean row of prep_idx as an extra training query. The copy keeps the row's target_vessel_id; truth is forced into candidates as for every training query. Resources, lookup tables and the original queries stay unchanged.",
+    "korean_row": "is_korean(vessel_name) per src.metric (any Hangul syllable).",
+    "hash": "a(sample_id, variant, salt) = int(sha256(f'v11-korean-augment-1|{variant}|{salt}|{sample_id}').hexdigest()[:16], 16) / 2**64. This string differs from the stress protocol, so training and evaluation perturbations never share draws.",
+    "copies_per_korean_row": 1,
+    "variants": {
+      "A0_none": "No augmentation. Reuse the frozen A0 fold models; do not retrain.",
+      "A1_tonnage_missing": "Copy with gross_tonnage = NaN and international_gross_tonnage = NaN.",
+      "A2_tonnage_noise": "Copy with every present tonnage value multiplied by [0.85, 0.9, 1.1, 1.15][floor(a(sample_id,'A2','factor') * 4)].",
+      "A3_name_noise": "Let S be the Hangul syllable positions. If len(S) >= 3 and a(sample_id,'A3','op') < 0.5: delete the syllable at S[floor(a(sample_id,'A3','pos') * len(S))]. Otherwise, if len(name) >= 2: insert one space at offset 1 + floor(a(sample_id,'A3','pos') * (len(name) - 1)), clamped to len(name) - 1. A copy identical to the original is still added and counted as unchanged.",
+      "A4_mixed": "Per Korean row pick one of A1/A2/A3 by [A1, A2, A3][floor(a(sample_id,'A4','mix') * 3)] and apply that variant's rule using the chosen variant's own name (A1/A2/A3) in the salts. Exploratory multi-change variant."
+    },
+    "training_other_settings": "retrain_config.baseline_config() for everything else (lightgbm_v11, seed 42, override_policy callsign_and_name)."
+  },
+  "evaluation": {
+    "data": "Five group-OOF folds of the frozen split, 12,222 rows (1,191 Korean). A0 uses the frozen models; A1-A4 are trained on each fold's training rows with the augmentation above.",
+    "clean": "E0_clean: unperturbed validation inputs.",
+    "matched_scenarios_report_only": {
+      "T1": "v11-stress-oof-1 T1_tonnage_both_missing (missing has one form, so it cannot be held out).",
+      "N1": "v11-stress-oof-1 N1_spacing.",
+      "N2_delete_korean": "v11-stress-oof-1 N2_char_edit_one, Korean rows whose applied operation is korean_delete_syllable."
+    },
+    "held_out_scenarios_decision": {
+      "T2": "v11-stress-oof-1 T2_tonnage_noise_20pct (+/-20%, outside the A2 training factors).",
+      "T2b_tonnage_noise_30pct": "New. Rows with at least one positive tonnage: multiply every present value by 1.3 if u(sample_id,'T2b_tonnage_noise_30pct','sign') < 0.5 else 0.7.",
+      "T4_gross_only_missing": "New. Rows where both tonnage values are present: gross_tonnage = NaN, international_gross_tonnage kept.",
+      "N3": "v11-stress-oof-1 N3_affix (Korean rows: add or remove a final '호').",
+      "N6_syllable_duplicate": "New. Korean names with at least 2 Hangul syllables: duplicate the syllable at S[floor(u(sample_id,'N6_syllable_duplicate','pos') * len(S))] in place.",
+      "N7_korean_transpose": "New. Korean names with at least 2 adjacent Hangul syllables: swap the pair at position floor(u(sample_id,'N7_korean_transpose','pos') * pairs) among adjacent Hangul pairs. A swap of two identical syllables is not eligible; choose only among pairs of different syllables."
+    },
+    "new_scenario_hash": "New scenarios use the v11-stress-oof-1 u(...) formula and protocol string unchanged, with their own scenario ids above.",
+    "metrics": "Per variant and scenario: all/Korean/non-Korean correct counts, raw weighted score, Korean and non-Korean net correct change vs A0 on the same rows, newly wrong/correct, candidate recall, primary error types of newly wrong rows."
+  },
+  "gates": {
+    "G0_a0_replay": "A0 clean replay must reproduce the stored clean final predictions on 12,222/12,222 rows and the stored candidates/features hashes (same check as v11-stress-oof-1 G0).",
+    "G0b_training_parity": "With augmentation disabled, the modified training_matrix must reproduce a0_training_matrix_sha256 for all five folds. Also retrain fold 0 without augmentation once; its model sha256 must equal a0_model_sha256['0']. If the model hash differs, stop and record it; do not run any variant.",
+    "G1_augmentation_audit": "Per variant and fold: Korean prep rows seen, copies added, copies actually changed, operation counts, and proof that no outer-validation sample_id appears among augmented rows.",
+    "G2_clean_non_regression": "On E0_clean vs A0: Korean net correct change >= 0 and non-Korean net correct change >= -3. Candidate recall must be identical (inference unchanged).",
+    "G3_row_independence": "Sample reversed-subset and single-row check (at least 5 rows, both languages) for every variant on E0_clean."
+  },
+  "decision_rule": {
+    "eligibility": "G0, G0b, G1, G3 pass and the variant passes G2.",
+    "robustness_gain": "Sum over the six held-out scenarios of (variant Korean correct - A0 Korean correct) must be >= +24 rows (2% of 1,191), and no single held-out scenario may have a negative Korean net change.",
+    "selection": "Among eligible variants that meet robustness_gain, pick the one with the largest summed held-out Korean gain. Ties: single-change variants (A1, A2, A3) before A4, then A1 < A2 < A3.",
+    "output": "At most one variant is recommended for a leaderboard diagnostic: a full-train package of that variant compared with Public 0.8882950791. If no variant qualifies, record a verified negative result.",
+    "not_adoption": "This rule only picks a leaderboard diagnostic. It does not adopt a submission model."
+  },
+  "interpretation_limits": [
+    "All official target groups were exposed in earlier validation and error analysis; results are exploratory.",
+    "Held-out perturbations are still assumptions and may not match real test spelling or tonnage differences.",
+    "The +24 and -3 thresholds account for the saturated clean OOF (13 baseline errors) and are fixed before any result.",
+    "No variant, rate, factor, scenario or threshold may change after any result is seen; a change needs a new protocol version."
+  ],
+  "outputs": {
+    "run_dir": "experiments/results/agent_v11_korean_augment_<YYYYmmdd_HHMMSS>_<6hex>/",
+    "files": "pre_run_intent.json, g0_replay.json, g0b_training_parity.json, augmentation_audit.json, eval_<variant>_<scenario>.json (no row ids), summary.json, summary.md, completion_verification.json, local_only/ (models and row-level files; never committed or sent to an LLM)"
+  },
+  "budget": "4 variants x 5 folds retraining at roughly 3-5 minutes each, plus 1 parity retrain, plus about 10 scenario passes per model. Expect 3-4 hours on the same CPU. No leaderboard submission inside this protocol."
+}
